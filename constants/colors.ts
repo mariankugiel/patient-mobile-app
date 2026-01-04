@@ -1,0 +1,15 @@
+export default {
+  primary: "#39ACB1",
+  primaryLight: "#4FBDC2",
+  primaryDark: "#2D8A8E",
+  secondary: "#F5F5F5",
+  text: "#333333",
+  textLight: "#666666",
+  textLighter: "#999999",
+  success: "#4CAF50",
+  warning: "#FFC107",
+  danger: "#F44336",
+  background: "#FFFFFF",
+  card: "#FFFFFF",
+  border: "#E0E0E0",
+};
