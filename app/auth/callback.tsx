@@ -97,7 +97,7 @@ export default function AuthCallbackScreen() {
           });
 
           // Redirect to main app
-          router.replace('/(tabs)');
+          router.replace('/(tabs)/records');
         } else {
           // No tokens in callback, redirect to login
           router.replace('/auth/login');

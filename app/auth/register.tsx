@@ -17,7 +17,7 @@ export default function RegisterScreen() {
 
   const handleRegister = () => {
     // In a real app, you would validate and create an account here
-    router.replace('/(tabs)');
+    router.replace('/(tabs)/records');
   };
 
   return (

@@ -19,7 +19,7 @@ export default function LoginScreen() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && !isRestoringSession) {
-    router.replace('/(tabs)');
+    router.replace('/(tabs)/records');
     }
   }, [isAuthenticated, isRestoringSession, router]);
 

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "saluso-app-pacientes",
-    "slug": "app-paciente",
+    "name": "saluso-app-patients",
+    "slug": "app-patient",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -27,11 +27,13 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.saluso-paciente",
+      "package": "com.yourhealthoneplace.apppatient",
+      "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -53,6 +55,15 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": "https://rork.app/"
+      },
+      "eas": {
+        "projectId": "e7753ffd-8eca-4faf-beda-9c71d38cf65c"
+      }
+    },
+    "owner": "yourhealthoneplace"
   }
 }

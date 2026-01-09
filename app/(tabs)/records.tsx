@@ -25,6 +25,8 @@ import { useHealthRecordsSummary } from '@/hooks/useHealthRecordsSummary';
 import { useHealthRecordsDashboard } from '@/hooks/useHealthRecordsDashboard';
 import { HealthRecordsApiService, MetricWithData } from '@/lib/api/health-records-api';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { useCurrentMedicalConditions, usePastMedicalConditions, useFamilyMedicalHistory } from '@/hooks/useMedicalConditions';
+import { useSurgeryHospitalization } from '@/hooks/useSurgeryHospitalization';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -102,6 +104,31 @@ export default function RecordsScreen() {
   const { data: vitalsData, isLoading: vitalsLoading } = useHealthRecordsDashboard(2, activeTab === 'vitais'); // Vitals
   const { data: bodyData, isLoading: bodyLoading } = useHealthRecordsDashboard(3, activeTab === 'corpo'); // Body
   const { data: lifestyleData, isLoading: lifestyleLoading } = useHealthRecordsDashboard(4, activeTab === 'lifestyle'); // Lifestyle
+  
+  // Medical conditions and history hooks
+  const { 
+    conditions: currentConditions, 
+    loading: currentLoading, 
+    error: currentError 
+  } = useCurrentMedicalConditions();
+  
+  const { 
+    conditions: pastConditions, 
+    loading: pastLoading, 
+    error: pastError 
+  } = usePastMedicalConditions();
+  
+  const { 
+    history: familyHistory, 
+    loading: familyLoading, 
+    error: familyError 
+  } = useFamilyMedicalHistory();
+  
+  const { 
+    surgeries, 
+    loading: surgeriesLoading, 
+    error: surgeriesError 
+  } = useSurgeryHospitalization();
   
   // AI analysis for each tab
   const [analysesAiAnalysis, setAnalysesAiAnalysis] = useState<any>(null);
@@ -633,62 +660,391 @@ export default function RecordsScreen() {
     );
   };
 
+  // Helper function to format dates
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      return date.toLocaleDateString(language === 'pt-PT' ? 'pt-PT' : language === 'es-ES' ? 'es-ES' : 'en-US');
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Helper function to format relation name
+  const formatRelationName = (relation: string): string => {
+    return relation
+      .split('_')
+      .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  // Helper function to get status badge color
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case 'controlled':
+        return Colors.success;
+      case 'partiallyControlled':
+        return Colors.warning;
+      case 'uncontrolled':
+        return Colors.danger;
+      default:
+        return Colors.textLight;
+    }
+  };
+
+  // Helper function to get status label
+  const getStatusLabel = (status: string): string => {
+    switch (status) {
+      case 'controlled':
+        return t.statusControlled;
+      case 'partiallyControlled':
+        return t.statusPartiallyControlled;
+      case 'uncontrolled':
+        return t.statusUncontrolled;
+      default:
+        return status;
+    }
+  };
+
+  // Helper function to get recovery status color
+  const getRecoveryStatusColor = (status: string): string => {
+    switch (status) {
+      case 'full_recovery':
+        return Colors.success;
+      case 'partial_recovery':
+        return Colors.warning;
+      case 'no_recovery':
+        return Colors.danger;
+      default:
+        return Colors.textLight;
+    }
+  };
+
+  // Helper function to get recovery status label
+  const getRecoveryStatusLabel = (status: string): string => {
+    switch (status) {
+      case 'full_recovery':
+        return t.recoveryFull;
+      case 'partial_recovery':
+        return t.recoveryPartial;
+      case 'no_recovery':
+        return t.recoveryNone;
+      default:
+        return status;
+    }
+  };
+
+  // Helper function to get procedure type label
+  const getProcedureTypeLabel = (type: string): string => {
+    return type === 'surgery' ? t.surgery : t.hospitalization;
+  };
+
   const renderHistorialTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.historialContainer}>
-        <View style={styles.historialSection}>
-          <Text style={styles.historialTitle}>{t.currentMedicalConditions}</Text>
-          {medicalConditions.current.map((condition, index) => (
-            <View key={`current-${index}`} style={styles.conditionItem}>
-              <View style={[styles.conditionDot, { backgroundColor: Colors.primary }]} />
-              <Text style={styles.conditionText}>{condition}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.historialSection}>
-          <Text style={styles.historialTitle}>{t.previousMedicalConditions}</Text>
-          {medicalConditions.previous.map((condition, index) => (
-            <View key={`previous-${index}`} style={styles.conditionItem}>
-              <View style={[styles.conditionDot, { backgroundColor: Colors.secondary }]} />
-              <Text style={styles.conditionText}>{condition}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.historialSection}>
-          <Text style={styles.historialTitle}>{t.familyHistory}</Text>
-          {medicalConditions.family.map((condition, index) => (
-            <View key={`family-${index}`} style={styles.conditionItem}>
-              <View style={[styles.conditionDot, { backgroundColor: Colors.warning }]} />
-              <Text style={styles.conditionText}>{condition}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.historialSection}>
-          <Text style={styles.historialTitle}>{t.additionalInfo}</Text>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t.bloodType}:</Text>
-              <Text style={styles.infoValue}>A+</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t.allergies}:</Text>
-              <Text style={styles.infoValue}>{t.notDefined}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t.surgeries}:</Text>
-              <Text style={styles.infoValue}>{t.notDefined}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t.regularMedication}:</Text>
-              <Text style={styles.infoValue}>{t.notDefined}</Text>
-            </View>
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+      {/* Current Medical Conditions */}
+      <View style={styles.historyCard}>
+        <View style={styles.historyCardHeader}>
+          <View>
+            <Text style={styles.historyCardTitle}>{t.currentMedicalConditions}</Text>
+            <Text style={styles.historyCardDescription}>{t.activeConditions}</Text>
           </View>
         </View>
+        <View style={styles.historyCardContent}>
+          {currentLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.loadingText}>{t.loadingCurrentConditions}</Text>
+            </View>
+          ) : currentError ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{t.errorLoadingCurrentConditions}: {currentError}</Text>
+            </View>
+          ) : currentConditions.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>{t.noCurrentConditions}</Text>
+              <Text style={styles.emptyDescription}>{t.noCurrentConditionsDesc}</Text>
+            </View>
+          ) : (
+            <View style={styles.conditionsList}>
+              {currentConditions.map((condition, index) => (
+                <TouchableOpacity 
+                  key={condition.id || index} 
+                  style={styles.conditionCard}
+                  onPress={() => router.push({ pathname: '/condition-detail', params: { id: condition.id?.toString() || '', type: 'current' } })}
+                >
+                  <View style={styles.conditionCardHeader}>
+                    <Text style={styles.conditionName}>{condition.condition}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(condition.status) }]}>
+                      <Text style={styles.statusBadgeText}>
+                        {getStatusLabel(condition.status)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.conditionDetails}>
+                    {condition.diagnosedDate && (
+                      <Text style={styles.conditionDetailText}>
+                        <Text style={styles.conditionDetailLabel}>{t.diagnosed}:</Text> {formatDate(condition.diagnosedDate)}
+                      </Text>
+                    )}
+                    {condition.treatedWith && (
+                      <Text style={styles.conditionDetailText}>
+                        <Text style={styles.conditionDetailLabel}>{t.treatment}:</Text> {condition.treatedWith}
+                      </Text>
+                    )}
+                    {condition.notes && (
+                      <Text style={styles.conditionNotes}>{condition.notes}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
-    </View>
+
+      {/* Past Medical Conditions */}
+      <View style={styles.historyCard}>
+        <View style={styles.historyCardHeader}>
+          <View>
+            <Text style={styles.historyCardTitle}>{t.previousMedicalConditions}</Text>
+            <Text style={styles.historyCardDescription}>{t.resolvedConditions}</Text>
+          </View>
+        </View>
+        <View style={styles.historyCardContent}>
+          {pastLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.loadingText}>{t.loadingPastConditions}</Text>
+            </View>
+          ) : pastError ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{t.errorLoadingPastConditions}: {pastError}</Text>
+            </View>
+          ) : pastConditions.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>{t.noPastConditions}</Text>
+              <Text style={styles.emptyDescription}>{t.noPastConditionsDesc}</Text>
+            </View>
+          ) : (
+            <View style={styles.conditionsList}>
+              {pastConditions.map((condition, index) => (
+                <TouchableOpacity 
+                  key={condition.id || index} 
+                  style={styles.conditionCard}
+                  onPress={() => router.push({ pathname: '/condition-detail', params: { id: condition.id?.toString() || '', type: 'past' } })}
+                >
+                  <View style={styles.conditionCardHeader}>
+                    <Text style={styles.conditionName}>{condition.condition}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: Colors.success }]}>
+                      <Text style={styles.statusBadgeText}>{t.resolved}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.conditionDetails}>
+                    {condition.diagnosedDate && (
+                      <Text style={styles.conditionDetailText}>
+                        <Text style={styles.conditionDetailLabel}>{t.diagnosed}:</Text> {formatDate(condition.diagnosedDate)}
+                      </Text>
+                    )}
+                    {condition.resolvedDate && (
+                      <Text style={styles.conditionDetailText}>
+                        <Text style={styles.conditionDetailLabel}>{t.resolved}:</Text> {formatDate(condition.resolvedDate)}
+                      </Text>
+                    )}
+                    {condition.treatedWith && (
+                      <Text style={styles.conditionDetailText}>
+                        <Text style={styles.conditionDetailLabel}>{t.treatment}:</Text> {condition.treatedWith}
+                      </Text>
+                    )}
+                    {condition.notes && (
+                      <Text style={styles.conditionNotes}>{condition.notes}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Family Medical History */}
+      <View style={styles.historyCard}>
+        <View style={styles.historyCardHeader}>
+          <View>
+            <Text style={styles.historyCardTitle}>{t.familyHistory}</Text>
+            <Text style={styles.historyCardDescription}>{t.familyConditions}</Text>
+          </View>
+        </View>
+        <View style={styles.historyCardContent}>
+          {familyLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.loadingText}>{t.loadingFamilyHistory}</Text>
+            </View>
+          ) : familyError ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{t.errorLoadingFamilyHistory}: {familyError}</Text>
+            </View>
+          ) : familyHistory.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>{t.noFamilyHistory}</Text>
+              <Text style={styles.emptyDescription}>{t.noFamilyHistoryDesc}</Text>
+            </View>
+          ) : (
+            <View style={styles.conditionsList}>
+              {familyHistory.map((entry, index) => {
+                const chronicDiseases = entry.chronic_diseases || [];
+                const isDeceased = entry.is_deceased || false;
+                
+                return (
+                  <TouchableOpacity 
+                    key={entry.id || index} 
+                    style={styles.conditionCard}
+                    onPress={() => router.push({ pathname: '/family-history-detail', params: { id: entry.id?.toString() || '' } })}
+                  >
+                    <View style={styles.conditionCardHeader}>
+                      <Text style={styles.conditionName}>{formatRelationName(entry.relation)}</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: isDeceased ? Colors.textLight : Colors.success }]}>
+                        <Text style={styles.statusBadgeText}>
+                          {isDeceased ? t.deceased : t.alive}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    {isDeceased ? (
+                      <View style={styles.conditionDetails}>
+                        {entry.age_at_death && (
+                          <Text style={styles.conditionDetailText}>
+                            <Text style={styles.conditionDetailLabel}>{t.ageAtDeath}:</Text> {entry.age_at_death}
+                          </Text>
+                        )}
+                        {entry.cause_of_death && (
+                          <Text style={styles.conditionDetailText}>
+                            <Text style={styles.conditionDetailLabel}>{t.causeOfDeath}:</Text> {entry.cause_of_death}
+                          </Text>
+                        )}
+                      </View>
+                    ) : (
+                      <View style={styles.conditionDetails}>
+                        {entry.current_age && (
+                          <Text style={styles.conditionDetailText}>
+                            <Text style={styles.conditionDetailLabel}>{t.currentAge}:</Text> {entry.current_age}
+                          </Text>
+                        )}
+                        {chronicDiseases.length > 0 && (
+                          <View style={styles.chronicDiseasesContainer}>
+                            <Text style={styles.chronicDiseasesTitle}>{t.chronicDiseases}:</Text>
+                            {chronicDiseases.map((disease: any, idx: number) => (
+                              <Text key={idx} style={styles.chronicDiseaseItem}>
+                                • {disease.disease} {disease.age_at_diagnosis && `(${t.diagnosedAtAge} ${disease.age_at_diagnosis})`}
+                                {disease.comments && <Text style={styles.chronicDiseaseComment}> - {disease.comments}</Text>}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    
+                    {/* Legacy condition display for backward compatibility */}
+                    {entry.condition && (
+                      <View style={[styles.conditionDetails, styles.legacyConditionDetails]}>
+                        <Text style={styles.conditionDetailText}>
+                          <Text style={styles.conditionDetailLabel}>{t.condition}:</Text> {entry.condition}
+                        </Text>
+                        {entry.ageOfOnset && (
+                          <Text style={styles.conditionDetailText}>
+                            <Text style={styles.conditionDetailLabel}>{t.ageOfOnset}:</Text> {entry.ageOfOnset}
+                          </Text>
+                        )}
+                        {entry.outcome && (
+                          <Text style={styles.conditionDetailText}>
+                            <Text style={styles.conditionDetailLabel}>{t.outcome}:</Text> {entry.outcome}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Surgeries & Hospitalizations */}
+      <View style={styles.historyCard}>
+        <View style={styles.historyCardHeader}>
+          <View>
+            <Text style={styles.historyCardTitle}>{t.surgeriesHospitalizations}</Text>
+            <Text style={styles.historyCardDescription}>{t.previousSurgeriesDesc}</Text>
+          </View>
+        </View>
+        <View style={styles.historyCardContent}>
+          {surgeriesLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.loadingText}>{t.loading}</Text>
+            </View>
+          ) : surgeriesError ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{surgeriesError}</Text>
+            </View>
+          ) : surgeries.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>{t.noSurgeriesHospitalizations}</Text>
+              <Text style={styles.emptyDescription}>{t.noSurgeriesHospitalizationsDesc}</Text>
+            </View>
+          ) : (
+            <View style={styles.conditionsList}>
+              {surgeries.map((surgery) => (
+                <TouchableOpacity 
+                  key={surgery.id} 
+                  style={styles.conditionCard}
+                  onPress={() => router.push({ pathname: '/surgery-detail', params: { id: surgery.id.toString() } })}
+                >
+                  <View style={styles.conditionCardHeader}>
+                    <Text style={styles.conditionName}>
+                      {getProcedureTypeLabel(surgery.procedure_type)} - {surgery.name}
+                    </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getRecoveryStatusColor(surgery.recovery_status) }]}>
+                      <Text style={styles.statusBadgeText}>
+                        {getRecoveryStatusLabel(surgery.recovery_status)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.conditionDetails}>
+                    <Text style={styles.conditionDetailText}>
+                      <Text style={styles.conditionDetailLabel}>{t.date}:</Text> {formatDate(surgery.procedure_date)}
+                    </Text>
+                    {surgery.reason && (
+                      <Text style={styles.conditionDetailText}>
+                        <Text style={styles.conditionDetailLabel}>{t.reason}:</Text> {surgery.reason}
+                      </Text>
+                    )}
+                    {surgery.treatment && (
+                      <Text style={styles.conditionDetailText}>
+                        <Text style={styles.conditionDetailLabel}>{t.treatment}:</Text> {surgery.treatment}
+                      </Text>
+                    )}
+                    {surgery.body_area && (
+                      <Text style={styles.conditionDetailText}>
+                        <Text style={styles.conditionDetailLabel}>{t.bodyArea}:</Text> {surgery.body_area}
+                      </Text>
+                    )}
+                    {surgery.notes && (
+                      <Text style={styles.conditionNotes}>
+                        <Text style={styles.conditionDetailLabel}>{t.notes}:</Text> {surgery.notes}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+    </ScrollView>
   );
 
   const renderAnalisesTab = () => {
@@ -1573,6 +1929,150 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textLight,
   },
+  historyCard: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    marginBottom: 16,
+    marginHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  historyCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  historyCardDescription: {
+    fontSize: 14,
+    color: Colors.textLight,
+  },
+  historyCardContent: {
+    padding: 16,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  loadingText: {
+    marginLeft: 8,
+    color: Colors.textLight,
+    fontSize: 14,
+  },
+  errorContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: Colors.danger,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: Colors.textLight,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  emptyDescription: {
+    color: Colors.textLight,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  conditionsList: {
+    gap: 12,
+  },
+  conditionCard: {
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  conditionCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  conditionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    flex: 1,
+    marginRight: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.background,
+  },
+  conditionDetails: {
+    gap: 8,
+  },
+  conditionDetailText: {
+    fontSize: 14,
+    color: Colors.textLight,
+    lineHeight: 20,
+  },
+  conditionDetailLabel: {
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  conditionNotes: {
+    fontSize: 14,
+    color: Colors.textLight,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  chronicDiseasesContainer: {
+    marginTop: 8,
+  },
+  chronicDiseasesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  chronicDiseaseItem: {
+    fontSize: 14,
+    color: Colors.textLight,
+    marginLeft: 12,
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  chronicDiseaseComment: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  legacyConditionDetails: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
   chartsContainer: {
     marginBottom: 16,
   },
@@ -1603,11 +2103,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: Colors.text,
-  },
-  statusBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
   },
   statusText: {
     fontSize: 10,

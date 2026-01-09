@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, FileText, CheckSquare, Pill, Calendar } from 'lucide-react-native';
+import { FileText, CheckSquare, Pill, Calendar } from 'lucide-react-native';
 import { Platform } from 'react-native';
 import Colors from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -29,13 +29,6 @@ export default function TabLayout() {
         tabBarHideOnKeyboard: true,
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t.tabPanel,
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
-        }}
-      />
       <Tabs.Screen
         name="records"
         options={{

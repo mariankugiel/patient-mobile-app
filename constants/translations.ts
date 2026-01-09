@@ -2,7 +2,6 @@ export type Language = 'pt-PT' | 'es-ES' | 'en-US';
 
 export interface Translations {
   // Tab names
-  tabPanel: string;
   tabRecords: string;
   tabPlans: string;
   tabMedications: string;
@@ -299,6 +298,135 @@ export interface Translations {
   familyHistory: string;
   additionalInfo: string;
   surgeries: string;
+  surgeriesHospitalizations: string;
+  activeConditions: string;
+  resolvedConditions: string;
+  familyConditions: string;
+  previousSurgeriesDesc: string;
+  surgery: string;
+  hospitalization: string;
+  bodyArea: string;
+  reason: string;
+  diagnosed: string;
+  treatment: string;
+  resolved: string;
+  resolvedDate: string;
+  ageOfOnset: string;
+  relation: string;
+  outcome: string;
+  notes: string;
+  currentStatus: string;
+  statusControlled: string;
+  statusPartiallyControlled: string;
+  statusUncontrolled: string;
+  recoveryFull: string;
+  recoveryPartial: string;
+  recoveryNone: string;
+  date: string;
+  noSurgeriesHospitalizations: string;
+  noSurgeriesHospitalizationsDesc: string;
+  noCurrentConditions: string;
+  noCurrentConditionsDesc: string;
+  noPastConditions: string;
+  noPastConditionsDesc: string;
+  noFamilyHistory: string;
+  noFamilyHistoryDesc: string;
+  loadingCurrentConditions: string;
+  loadingPastConditions: string;
+  loadingFamilyHistory: string;
+  errorLoadingCurrentConditions: string;
+  errorLoadingPastConditions: string;
+  errorLoadingFamilyHistory: string;
+  deceased: string;
+  alive: string;
+  ageAtDeath: string;
+  causeOfDeath: string;
+  currentAge: string;
+  chronicDiseases: string;
+  diagnosedAtAge: string;
+  condition: string;
+  conditionName: string;
+  conditionNameRequired: string;
+  dateDiagnosed: string;
+  dateDiagnosedRequired: string;
+  dateResolved: string;
+  dateResolvedRequired: string;
+  conditionUpdated: string;
+  deleteCurrentConditionConfirm: string;
+  deletePastConditionConfirm: string;
+  deleteFamilyHistoryConfirm: string;
+  deleteSurgeryConfirm: string;
+  surgeryUpdated: string;
+  procedureNameRequired: string;
+  procedureDateRequired: string;
+  conditionDetails: string;
+  familyHistoryDetails: string;
+  surgeryDetails: string;
+  editCondition: string;
+  editFamilyHistory: string;
+  editSurgeryHospitalization: string;
+  relationRequired: string;
+  enterConditionName: string;
+  enterProcedureName: string;
+  enterReason: string;
+  enterTreatment: string;
+  enterBodyArea: string;
+  procedureType: string;
+  procedureName: string;
+  procedureDate: string;
+  recoveryStatus: string;
+  currentTreatment: string;
+  additionalNotes: string;
+  enterRelation: string;
+  disease: string;
+  diseaseName: string;
+  ageAtDiagnosis: string;
+  comments: string;
+  enterCauseOfDeath: string;
+  selectRelation: string;
+  familyHistoryUpdated: string;
+  relationMother: string;
+  relationFather: string;
+  relationMaternalGrandmother: string;
+  relationMaternalGrandfather: string;
+  relationPaternalGrandmother: string;
+  relationPaternalGrandfather: string;
+  relationSister: string;
+  relationBrother: string;
+  relationSon: string;
+  relationDaughter: string;
+  chronicDiseaseHypertension: string;
+  chronicDiseaseIschemicHeartDisease: string;
+  chronicDiseaseStroke: string;
+  chronicDiseaseType2Diabetes: string;
+  chronicDiseaseType1Diabetes: string;
+  chronicDiseaseCancer: string;
+  chronicDiseaseCopd: string;
+  chronicDiseaseAsthma: string;
+  chronicDiseaseArthritis: string;
+  chronicDiseaseBackProblems: string;
+  chronicDiseaseChronicKidneyDisease: string;
+  chronicDiseaseHighCholesterol: string;
+  chronicDiseaseObesity: string;
+  chronicDiseaseDepression: string;
+  chronicDiseaseOsteoporosis: string;
+  chronicDiseaseNeurodegenerative: string;
+  chronicDiseaseChronicLiverDisease: string;
+  chronicDiseaseChronicGastrointestinal: string;
+  chronicDiseaseThyroidDisorders: string;
+  chronicDiseaseAsthmaChronicBronchitis: string;
+  chronicDiseaseChronicSkin: string;
+  chronicDiseaseChronicDigestive: string;
+  chronicDiseaseChronicPain: string;
+  chronicDiseaseNeurologicalBeyondDementia: string;
+  chronicDiseaseChronicMentalHealth: string;
+  chronicDiseaseChronicEyeDiseases: string;
+  chronicDiseaseChronicHearing: string;
+  chronicDiseaseChronicOralDental: string;
+  chronicDiseaseChronicRespiratoryAllergies: string;
+  chronicDiseaseChronicUrogenital: string;
+  chronicDiseaseChronicMetabolic: string;
+  chronicDiseaseOthers: string;
   regularMedication: string;
   hematology: string;
   biochemistry: string;
@@ -506,7 +634,6 @@ export interface Translations {
 export const translations: Record<Language, Translations> = {
   'pt-PT': {
     // Tab names
-    tabPanel: 'Painel',
     tabRecords: 'Registos',
     tabPlans: 'Plano',
     tabMedications: 'Medicação',
@@ -804,6 +931,135 @@ export const translations: Record<Language, Translations> = {
     additionalInfo: 'Informações Adicionais',
     surgeries: 'Cirurgias',
     regularMedication: 'Medicação Regular',
+    surgeriesHospitalizations: 'Cirurgias e Hospitalizações',
+    activeConditions: 'Condições ativas que requerem gestão contínua',
+    resolvedConditions: 'Condições previamente diagnosticadas que foram resolvidas',
+    familyConditions: 'Historial médico de membros da família',
+    previousSurgeriesDesc: 'Procedimentos cirúrgicos anteriores e hospitalizações',
+    surgery: 'Cirurgia',
+    hospitalization: 'Hospitalização',
+    bodyArea: 'Área do Corpo',
+    reason: 'Motivo',
+    diagnosed: 'Diagnosticado',
+    treatment: 'Tratamento',
+    resolved: 'Resolvido',
+    resolvedDate: 'Data de Resolução',
+    ageOfOnset: 'Idade de Início',
+    relation: 'Relação',
+    outcome: 'Resultado',
+    notes: 'Notas',
+    currentStatus: 'Estado Atual',
+    statusControlled: 'Controlado',
+    statusPartiallyControlled: 'Parcialmente Controlado',
+    statusUncontrolled: 'Não Controlado',
+    recoveryFull: 'Recuperação Completa',
+    recoveryPartial: 'Recuperação Parcial',
+    recoveryNone: 'Sem Recuperação',
+    date: 'Data',
+    noSurgeriesHospitalizations: 'Nenhuma cirurgia ou hospitalização registada',
+    noSurgeriesHospitalizationsDesc: 'Adicione os seus procedimentos cirúrgicos e hospitalizações anteriores',
+    noCurrentConditions: 'Nenhuma condição médica atual',
+    noCurrentConditionsDesc: 'Adicione as suas condições médicas atuais',
+    noPastConditions: 'Nenhuma condição médica anterior',
+    noPastConditionsDesc: 'Adicione as suas condições médicas anteriores',
+    noFamilyHistory: 'Nenhum historial familiar',
+    noFamilyHistoryDesc: 'Adicione o historial médico da sua família',
+    loadingCurrentConditions: 'A carregar condições atuais...',
+    loadingPastConditions: 'A carregar condições anteriores...',
+    loadingFamilyHistory: 'A carregar historial familiar...',
+    errorLoadingCurrentConditions: 'Erro ao carregar condições atuais',
+    errorLoadingPastConditions: 'Erro ao carregar condições anteriores',
+    errorLoadingFamilyHistory: 'Erro ao carregar historial familiar',
+    deceased: 'Falecido',
+    alive: 'Vivo',
+    ageAtDeath: 'Idade à Morte',
+    causeOfDeath: 'Causa da Morte',
+    currentAge: 'Idade Atual',
+    chronicDiseases: 'Doenças Crónicas',
+    diagnosedAtAge: 'Diagnosticado aos',
+    condition: 'Condição',
+    conditionName: 'Nome da Condição',
+    conditionNameRequired: 'O nome da condição é obrigatório',
+    dateDiagnosed: 'Data de Diagnóstico',
+    dateDiagnosedRequired: 'A data de diagnóstico é obrigatória',
+    dateResolved: 'Data de Resolução',
+    dateResolvedRequired: 'A data de resolução é obrigatória',
+    conditionUpdated: 'Condição atualizada com sucesso',
+    deleteCurrentConditionConfirm: 'Tem certeza de que deseja excluir esta condição médica? Esta ação não pode ser desfeita.',
+    deletePastConditionConfirm: 'Tem certeza de que deseja excluir esta condição médica anterior? Esta ação não pode ser desfeita.',
+    deleteFamilyHistoryConfirm: 'Tem certeza de que deseja excluir esta entrada do histórico familiar? Esta ação não pode ser desfeita.',
+    deleteSurgeryConfirm: 'Tem certeza de que deseja excluir esta cirurgia/hospitalização? Esta ação não pode ser desfeita.',
+    surgeryUpdated: 'Cirurgia/hospitalização atualizada com sucesso',
+    procedureNameRequired: 'O nome do procedimento é obrigatório',
+    procedureDateRequired: 'A data do procedimento é obrigatória',
+    conditionDetails: 'Detalhes da Condição',
+    familyHistoryDetails: 'Detalhes do Histórico Familiar',
+    surgeryDetails: 'Detalhes da Cirurgia',
+    editCondition: 'Editar Condição',
+    editFamilyHistory: 'Editar Histórico Familiar',
+    editSurgeryHospitalization: 'Editar Cirurgia/Hospitalização',
+    relationRequired: 'A relação é obrigatória',
+    enterConditionName: 'Digite o nome da condição',
+    enterProcedureName: 'Digite o nome do procedimento',
+    enterReason: 'Digite o motivo do procedimento',
+    enterTreatment: 'Digite os detalhes do tratamento',
+    enterBodyArea: 'Digite a área do corpo',
+    procedureType: 'Tipo de Procedimento',
+    procedureName: 'Nome do Procedimento',
+    procedureDate: 'Data do Procedimento',
+    recoveryStatus: 'Status de Recuperação',
+    currentTreatment: 'Tratamento atual',
+    additionalNotes: 'Notas adicionais sobre a condição',
+    enterRelation: 'Digite a relação (ex: Pai, Mãe)',
+    disease: 'Doença',
+    diseaseName: 'Nome da Doença',
+    ageAtDiagnosis: 'Idade no Diagnóstico',
+    comments: 'Comentários',
+    enterCauseOfDeath: 'Digite a causa da morte',
+    selectRelation: 'Selecionar relação',
+    familyHistoryUpdated: 'Histórico familiar atualizado com sucesso',
+    relationMother: 'Mãe',
+    relationFather: 'Pai',
+    relationMaternalGrandmother: 'Avó Materna',
+    relationMaternalGrandfather: 'Avô Materno',
+    relationPaternalGrandmother: 'Avó Paterna',
+    relationPaternalGrandfather: 'Avô Paterno',
+    relationSister: 'Irmã',
+    relationBrother: 'Irmão',
+    relationSon: 'Filho',
+    relationDaughter: 'Filha',
+    chronicDiseaseHypertension: 'Hipertensão (pressão arterial alta)',
+    chronicDiseaseIschemicHeartDisease: 'Doença Isquémica / Coronária / outras Doenças Cardíacas (ataque cardíaco, doença cardíaca crónica)',
+    chronicDiseaseStroke: 'Acidente Vascular Cerebral / Doença Cerebrovascular',
+    chronicDiseaseType2Diabetes: 'Diabetes Tipo 2 / Diabetes mellitus',
+    chronicDiseaseType1Diabetes: 'Diabetes Tipo 1',
+    chronicDiseaseCancer: 'Cancro (vários tipos)',
+    chronicDiseaseCopd: 'Doença Pulmonar Obstrutiva Crónica (DPOC)',
+    chronicDiseaseAsthma: 'Asma (e outras doenças respiratórias crónicas inferiores)',
+    chronicDiseaseArthritis: 'Artrite / Osteoartrite / Artrite Reumatóide (musculoesquelética)',
+    chronicDiseaseBackProblems: 'Problemas nas costas / dor crónica nas costas / problemas na coluna (musculoesquelética)',
+    chronicDiseaseChronicKidneyDisease: 'Doença Renal Crónica (DRC) / doença renal (frequentemente associada à diabetes)',
+    chronicDiseaseHighCholesterol: 'Colesterol Alto / Dislipidemia (como fator de risco / condição crónica)',
+    chronicDiseaseObesity: 'Obesidade (como condição crónica / fator de risco)',
+    chronicDiseaseDepression: 'Depressão e outros Transtornos Mentais / Comportamentais',
+    chronicDiseaseOsteoporosis: 'Osteoporose (e outras doenças ósseas)',
+    chronicDiseaseNeurodegenerative: 'Doenças neurodegenerativas (ex. doença de Alzheimer / demência / outras demências)',
+    chronicDiseaseChronicLiverDisease: 'Doença Hepática Crónica / fígado gordo / doença hepática associada ao metabolismo',
+    chronicDiseaseChronicGastrointestinal: 'Doenças Gastrointestinais Crónicas (ex. gastrite crónica, refluxo / esofagite, distúrbios ácidos crónicos)',
+    chronicDiseaseThyroidDisorders: 'Distúrbios da Tiróide (ex. hipo ou hipertiroidismo)',
+    chronicDiseaseAsthmaChronicBronchitis: 'Asma / Bronquite Crónica / outras doenças respiratórias crónicas das vias aéreas',
+    chronicDiseaseChronicSkin: 'Doenças Cutâneas / Dermatológicas Crónicas (ex. eczema crónico ou dermatite, dermatite atópica)',
+    chronicDiseaseChronicDigestive: 'Condições Digestivas Crónicas (ex. doença de úlcera péptica, gastrite crónica)',
+    chronicDiseaseChronicPain: 'Distúrbios de Dor Crónica / Fibromialgia / dor crónica generalizada',
+    chronicDiseaseNeurologicalBeyondDementia: 'Distúrbios neurológicos além da demência (ex. doença de Parkinson, neuropatias, outras condições neurológicas crónicas)',
+    chronicDiseaseChronicMentalHealth: 'Distúrbios de Saúde Mental Crónicos além da depressão (ex. distúrbios de ansiedade, transtorno bipolar, esquizofrenia crónica, etc.)',
+    chronicDiseaseChronicEyeDiseases: 'Doenças Oculares Crónicas (ex. glaucoma, degeneração macular)',
+    chronicDiseaseChronicHearing: 'Distúrbios Auditivos Crónicos / Perda Auditiva',
+    chronicDiseaseChronicOralDental: 'Doenças Orais / Dentárias Crónicas (ex. cárie dentária, doença gengival)',
+    chronicDiseaseChronicRespiratoryAllergies: 'Alergias Respiratórias Crónicas / Rinite Crónica / Sinusite',
+    chronicDiseaseChronicUrogenital: 'Doenças Urogenitais Crónicas',
+    chronicDiseaseChronicMetabolic: 'Doenças Metabólicas Crónicas',
+    chronicDiseaseOthers: 'Outros',
     hematology: 'Hematologia',
     biochemistry: 'Bioquímica',
     documents: 'Documentos',
@@ -939,7 +1195,6 @@ export const translations: Record<Language, Translations> = {
   },
   'es-ES': {
     // Tab names
-    tabPanel: 'Panel',
     tabRecords: 'Registros',
     tabPlans: 'Plan',
     tabMedications: 'Medicación',
@@ -1236,6 +1491,135 @@ export const translations: Record<Language, Translations> = {
     additionalInfo: 'Información Adicional',
     surgeries: 'Cirugías',
     regularMedication: 'Medicación Regular',
+    surgeriesHospitalizations: 'Cirugías y Hospitalizaciones',
+    activeConditions: 'Condiciones activas que requieren gestión continua',
+    resolvedConditions: 'Condiciones previamente diagnosticadas que han sido resueltas',
+    familyConditions: 'Historial médico de miembros de la familia',
+    previousSurgeriesDesc: 'Procedimientos quirúrgicos anteriores y hospitalizaciones',
+    surgery: 'Cirugía',
+    hospitalization: 'Hospitalización',
+    bodyArea: 'Área del Cuerpo',
+    reason: 'Motivo',
+    diagnosed: 'Diagnosticado',
+    treatment: 'Tratamiento',
+    resolved: 'Resuelto',
+    resolvedDate: 'Fecha de Resolución',
+    ageOfOnset: 'Edad de Inicio',
+    relation: 'Relación',
+    outcome: 'Resultado',
+    notes: 'Notas',
+    currentStatus: 'Estado Actual',
+    statusControlled: 'Controlado',
+    statusPartiallyControlled: 'Parcialmente Controlado',
+    statusUncontrolled: 'No Controlado',
+    recoveryFull: 'Recuperación Completa',
+    recoveryPartial: 'Recuperación Parcial',
+    recoveryNone: 'Sin Recuperación',
+    date: 'Fecha',
+    noSurgeriesHospitalizations: 'No hay cirugías u hospitalizaciones registradas',
+    noSurgeriesHospitalizationsDesc: 'Agregue sus procedimientos quirúrgicos y hospitalizaciones anteriores',
+    noCurrentConditions: 'No hay condiciones médicas actuales',
+    noCurrentConditionsDesc: 'Agregue sus condiciones médicas actuales',
+    noPastConditions: 'No hay condiciones médicas anteriores',
+    noPastConditionsDesc: 'Agregue sus condiciones médicas anteriores',
+    noFamilyHistory: 'No hay historial familiar',
+    noFamilyHistoryDesc: 'Agregue el historial médico de su familia',
+    loadingCurrentConditions: 'Cargando condiciones actuales...',
+    loadingPastConditions: 'Cargando condiciones anteriores...',
+    loadingFamilyHistory: 'Cargando historial familiar...',
+    errorLoadingCurrentConditions: 'Error al cargar condiciones actuales',
+    errorLoadingPastConditions: 'Error al cargar condiciones anteriores',
+    errorLoadingFamilyHistory: 'Error al cargar historial familiar',
+    deceased: 'Fallecido',
+    alive: 'Vivo',
+    ageAtDeath: 'Edad al Fallecer',
+    causeOfDeath: 'Causa de la Muerte',
+    currentAge: 'Edad Actual',
+    chronicDiseases: 'Enfermedades Crónicas',
+    diagnosedAtAge: 'Diagnosticado a los',
+    condition: 'Condición',
+    conditionName: 'Nombre de la Condición',
+    conditionNameRequired: 'El nombre de la condición es obligatorio',
+    dateDiagnosed: 'Fecha de Diagnóstico',
+    dateDiagnosedRequired: 'La fecha de diagnóstico es obligatoria',
+    dateResolved: 'Fecha de Resolución',
+    dateResolvedRequired: 'La fecha de resolución es obligatoria',
+    conditionUpdated: 'Condición actualizada con éxito',
+    deleteCurrentConditionConfirm: '¿Está seguro de que desea eliminar esta condición médica? Esta acción no se puede deshacer.',
+    deletePastConditionConfirm: '¿Está seguro de que desea eliminar esta condición médica anterior? Esta acción no se puede deshacer.',
+    deleteFamilyHistoryConfirm: '¿Está seguro de que desea eliminar esta entrada del historial familiar? Esta acción no se puede deshacer.',
+    deleteSurgeryConfirm: '¿Está seguro de que desea eliminar esta cirugía/hospitalización? Esta acción no se puede deshacer.',
+    surgeryUpdated: 'Cirugía/hospitalización actualizada con éxito',
+    procedureNameRequired: 'El nombre del procedimiento es obligatorio',
+    procedureDateRequired: 'La fecha del procedimiento es obligatoria',
+    conditionDetails: 'Detalles de la Condición',
+    familyHistoryDetails: 'Detalles del Historial Familiar',
+    surgeryDetails: 'Detalles de la Cirugía',
+    editCondition: 'Editar Condición',
+    editFamilyHistory: 'Editar Historial Familiar',
+    editSurgeryHospitalization: 'Editar Cirugía/Hospitalización',
+    relationRequired: 'La relación es obligatoria',
+    enterConditionName: 'Ingrese el nombre de la condición',
+    enterProcedureName: 'Ingrese el nombre del procedimiento',
+    enterReason: 'Ingrese el motivo del procedimiento',
+    enterTreatment: 'Ingrese los detalles del tratamiento',
+    enterBodyArea: 'Ingrese el área del cuerpo',
+    procedureType: 'Tipo de Procedimiento',
+    procedureName: 'Nombre del Procedimiento',
+    procedureDate: 'Fecha del Procedimiento',
+    recoveryStatus: 'Estado de Recuperación',
+    currentTreatment: 'Tratamiento actual',
+    additionalNotes: 'Notas adicionales sobre la condición',
+    enterRelation: 'Ingrese la relación (ej: Padre, Madre)',
+    disease: 'Enfermedad',
+    diseaseName: 'Nombre de la Enfermedad',
+    ageAtDiagnosis: 'Edad en el Diagnóstico',
+    comments: 'Comentarios',
+    enterCauseOfDeath: 'Ingrese la causa de la muerte',
+    selectRelation: 'Seleccionar relación',
+    familyHistoryUpdated: 'Historial familiar actualizado con éxito',
+    relationMother: 'Madre',
+    relationFather: 'Padre',
+    relationMaternalGrandmother: 'Abuela Materna',
+    relationMaternalGrandfather: 'Abuelo Materno',
+    relationPaternalGrandmother: 'Abuela Paterna',
+    relationPaternalGrandfather: 'Abuelo Paterno',
+    relationSister: 'Hermana',
+    relationBrother: 'Hermano',
+    relationSon: 'Hijo',
+    relationDaughter: 'Hija',
+    chronicDiseaseHypertension: 'Hipertensión (presión arterial alta)',
+    chronicDiseaseIschemicHeartDisease: 'Enfermedad Isquémica / Coronaria / otras Enfermedades Cardíacas (ataque cardíaco, enfermedad cardíaca crónica)',
+    chronicDiseaseStroke: 'Accidente Cerebrovascular / Enfermedad Cerebrovascular',
+    chronicDiseaseType2Diabetes: 'Diabetes Tipo 2 / Diabetes mellitus',
+    chronicDiseaseType1Diabetes: 'Diabetes Tipo 1',
+    chronicDiseaseCancer: 'Cáncer (varios tipos)',
+    chronicDiseaseCopd: 'Enfermedad Pulmonar Obstructiva Crónica (EPOC)',
+    chronicDiseaseAsthma: 'Asma (y otras enfermedades respiratorias crónicas inferiores)',
+    chronicDiseaseArthritis: 'Artritis / Osteoartritis / Artritis Reumatoide (musculoesquelética)',
+    chronicDiseaseBackProblems: 'Problemas de espalda / dolor crónico de espalda / problemas de columna (musculoesquelética)',
+    chronicDiseaseChronicKidneyDisease: 'Enfermedad Renal Crónica (ERC) / enfermedad renal (a menudo relacionada con la diabetes)',
+    chronicDiseaseHighCholesterol: 'Colesterol Alto / Dislipidemia (como factor de riesgo / condición crónica)',
+    chronicDiseaseObesity: 'Obesidad (como condición crónica / factor de riesgo)',
+    chronicDiseaseDepression: 'Depresión y otros Trastornos Mentales / Conductuales',
+    chronicDiseaseOsteoporosis: 'Osteoporosis (y otras enfermedades óseas)',
+    chronicDiseaseNeurodegenerative: 'Enfermedades neurodegenerativas (ej. enfermedad de Alzheimer / demencia / otras demencias)',
+    chronicDiseaseChronicLiverDisease: 'Enfermedad Hepática Crónica / hígado graso / enfermedad hepática asociada al metabolismo',
+    chronicDiseaseChronicGastrointestinal: 'Enfermedades Gastrointestinales Crónicas (ej. gastritis crónica, reflujo / esofagitis, trastornos ácidos crónicos)',
+    chronicDiseaseThyroidDisorders: 'Trastornos de la Tiroides (ej. hipo o hipertiroidismo)',
+    chronicDiseaseAsthmaChronicBronchitis: 'Asma / Bronquitis Crónica / otras enfermedades respiratorias crónicas de las vías aéreas',
+    chronicDiseaseChronicSkin: 'Enfermedades Cutáneas / Dermatológicas Crónicas (ej. eczema crónico o dermatitis, dermatitis atópica)',
+    chronicDiseaseChronicDigestive: 'Condiciones Digestivas Crónicas (ej. enfermedad de úlcera péptica, gastritis crónica)',
+    chronicDiseaseChronicPain: 'Trastornos de Dolor Crónico / Fibromialgia / dolor crónico generalizado',
+    chronicDiseaseNeurologicalBeyondDementia: 'Trastornos neurológicos más allá de la demencia (ej. enfermedad de Parkinson, neuropatías, otras condiciones neurológicas crónicas)',
+    chronicDiseaseChronicMentalHealth: 'Trastornos de Salud Mental Crónicos más allá de la depresión (ej. trastornos de ansiedad, trastorno bipolar, esquizofrenia crónica, etc.)',
+    chronicDiseaseChronicEyeDiseases: 'Enfermedades Oculares Crónicas (ej. glaucoma, degeneración macular)',
+    chronicDiseaseChronicHearing: 'Trastornos Auditivos Crónicos / Pérdida Auditiva',
+    chronicDiseaseChronicOralDental: 'Enfermedades Orales / Dentales Crónicas (ej. caries dental, enfermedad de las encías)',
+    chronicDiseaseChronicRespiratoryAllergies: 'Alergias Respiratorias Crónicas / Rinitis Crónica / Sinusitis',
+    chronicDiseaseChronicUrogenital: 'Enfermedades Urogenitales Crónicas',
+    chronicDiseaseChronicMetabolic: 'Enfermedades Metabólicas Crónicas',
+    chronicDiseaseOthers: 'Otros',
     hematology: 'Hematología',
     biochemistry: 'Bioquímica',
     documents: 'Documentos',
@@ -1440,7 +1824,6 @@ export const translations: Record<Language, Translations> = {
   },
   'en-US': {
     // Tab names
-    tabPanel: 'Dashboard',
     tabRecords: 'Records',
     tabPlans: 'Plan',
     tabMedications: 'Medication',
@@ -1738,6 +2121,135 @@ export const translations: Record<Language, Translations> = {
     additionalInfo: 'Additional Information',
     surgeries: 'Surgeries',
     regularMedication: 'Regular Medication',
+    surgeriesHospitalizations: 'Surgeries & Hospitalizations',
+    activeConditions: 'Active conditions requiring ongoing management',
+    resolvedConditions: 'Previously diagnosed conditions that have been resolved',
+    familyConditions: 'Medical history of family members',
+    previousSurgeriesDesc: 'Previous surgical procedures and hospitalizations',
+    surgery: 'Surgery',
+    hospitalization: 'Hospitalization',
+    bodyArea: 'Body Area',
+    reason: 'Reason',
+    diagnosed: 'Diagnosed',
+    treatment: 'Treatment',
+    resolved: 'Resolved',
+    resolvedDate: 'Resolved Date',
+    ageOfOnset: 'Age of Onset',
+    relation: 'Relation',
+    outcome: 'Outcome',
+    notes: 'Notes',
+    currentStatus: 'Current Status',
+    statusControlled: 'Controlled',
+    statusPartiallyControlled: 'Partially Controlled',
+    statusUncontrolled: 'Uncontrolled',
+    recoveryFull: 'Full Recovery',
+    recoveryPartial: 'Partial Recovery',
+    recoveryNone: 'No Recovery',
+    date: 'Date',
+    noSurgeriesHospitalizations: 'No surgeries or hospitalizations recorded',
+    noSurgeriesHospitalizationsDesc: 'Add your previous surgical procedures and hospitalizations',
+    noCurrentConditions: 'No current medical conditions',
+    noCurrentConditionsDesc: 'Add your current medical conditions',
+    noPastConditions: 'No past medical conditions',
+    noPastConditionsDesc: 'Add your past medical conditions',
+    noFamilyHistory: 'No family history',
+    noFamilyHistoryDesc: 'Add your family medical history',
+    loadingCurrentConditions: 'Loading current conditions...',
+    loadingPastConditions: 'Loading past conditions...',
+    loadingFamilyHistory: 'Loading family history...',
+    errorLoadingCurrentConditions: 'Error loading current conditions',
+    errorLoadingPastConditions: 'Error loading past conditions',
+    errorLoadingFamilyHistory: 'Error loading family history',
+    deceased: 'Deceased',
+    alive: 'Alive',
+    ageAtDeath: 'Age at Death',
+    causeOfDeath: 'Cause of Death',
+    currentAge: 'Current Age',
+    chronicDiseases: 'Chronic Diseases',
+    diagnosedAtAge: 'Diagnosed at age',
+    condition: 'Condition',
+    conditionName: 'Condition Name',
+    conditionNameRequired: 'Condition name is required',
+    dateDiagnosed: 'Date Diagnosed',
+    dateDiagnosedRequired: 'Diagnosed date is required',
+    dateResolved: 'Date Resolved',
+    dateResolvedRequired: 'Resolved date is required',
+    conditionUpdated: 'Condition updated successfully',
+    deleteCurrentConditionConfirm: 'Are you sure you want to delete this medical condition? This action cannot be undone.',
+    deletePastConditionConfirm: 'Are you sure you want to delete this past medical condition? This action cannot be undone.',
+    deleteFamilyHistoryConfirm: 'Are you sure you want to delete this family history entry? This action cannot be undone.',
+    deleteSurgeryConfirm: 'Are you sure you want to delete this surgery/hospitalization? This action cannot be undone.',
+    surgeryUpdated: 'Surgery/hospitalization updated successfully',
+    procedureNameRequired: 'Procedure name is required',
+    procedureDateRequired: 'Procedure date is required',
+    conditionDetails: 'Condition Details',
+    familyHistoryDetails: 'Family History Details',
+    surgeryDetails: 'Surgery Details',
+    editCondition: 'Edit Condition',
+    editFamilyHistory: 'Edit Family History',
+    editSurgeryHospitalization: 'Edit Surgery/Hospitalization',
+    relationRequired: 'Relation is required',
+    enterConditionName: 'Enter condition name',
+    enterProcedureName: 'Enter procedure name',
+    enterReason: 'Enter reason for procedure',
+    enterTreatment: 'Enter treatment details',
+    enterBodyArea: 'Enter body area',
+    procedureType: 'Procedure Type',
+    procedureName: 'Procedure Name',
+    procedureDate: 'Procedure Date',
+    recoveryStatus: 'Recovery Status',
+    currentTreatment: 'Current treatment',
+    additionalNotes: 'Additional notes about the condition',
+    enterRelation: 'Enter relation (e.g., Father, Mother)',
+    disease: 'Disease',
+    diseaseName: 'Disease Name',
+    ageAtDiagnosis: 'Age at Diagnosis',
+    comments: 'Comments',
+    enterCauseOfDeath: 'Enter cause of death',
+    selectRelation: 'Select relation',
+    familyHistoryUpdated: 'Family history updated successfully',
+    relationMother: 'Mother',
+    relationFather: 'Father',
+    relationMaternalGrandmother: 'Maternal Grandmother',
+    relationMaternalGrandfather: 'Maternal Grandfather',
+    relationPaternalGrandmother: 'Paternal Grandmother',
+    relationPaternalGrandfather: 'Paternal Grandfather',
+    relationSister: 'Sister',
+    relationBrother: 'Brother',
+    relationSon: 'Son',
+    relationDaughter: 'Daughter',
+    chronicDiseaseHypertension: 'Hypertension (high blood pressure)',
+    chronicDiseaseIschemicHeartDisease: 'Ischemic / Coronary Heart Disease / other Heart Diseases (heart attack, chronic heart disease)',
+    chronicDiseaseStroke: 'Stroke / Cerebrovascular disease',
+    chronicDiseaseType2Diabetes: 'Type 2 Diabetes / Diabetes mellitus',
+    chronicDiseaseType1Diabetes: 'Type 1 Diabetes',
+    chronicDiseaseCancer: 'Cancer (various types)',
+    chronicDiseaseCopd: 'Chronic Obstructive Pulmonary Disease (COPD)',
+    chronicDiseaseAsthma: 'Asthma (and other chronic lower-respiratory diseases)',
+    chronicDiseaseArthritis: 'Arthritis / Osteoarthritis / Rheumatoid Arthritis (musculoskeletal)',
+    chronicDiseaseBackProblems: 'Back problems / chronic back pain / spine problems (musculoskeletal)',
+    chronicDiseaseChronicKidneyDisease: 'Chronic Kidney Disease (CKD) / kidney disease (often linked to diabetes)',
+    chronicDiseaseHighCholesterol: 'High Cholesterol / Dyslipidemia (as risk factor / chronic condition)',
+    chronicDiseaseObesity: 'Obesity (as chronic condition / risk factor)',
+    chronicDiseaseDepression: 'Depression and other Mental / Behavioural disorders',
+    chronicDiseaseOsteoporosis: 'Osteoporosis (and other bone diseases)',
+    chronicDiseaseNeurodegenerative: 'Neurodegenerative diseases (e.g. Alzheimer\'s disease / dementia / other dementias)',
+    chronicDiseaseChronicLiverDisease: 'Chronic Liver Disease / fatty liver / metabolic-associated liver disease',
+    chronicDiseaseChronicGastrointestinal: 'Chronic Gastrointestinal diseases (e.g. chronic gastritis, reflux / esophagitis, chronic acid disorders)',
+    chronicDiseaseThyroidDisorders: 'Thyroid Disorders (e.g. hypo- or hyperthyroidism)',
+    chronicDiseaseAsthmaChronicBronchitis: 'Asthma / Chronic bronchitis / other chronic respiratory-airway diseases',
+    chronicDiseaseChronicSkin: 'Chronic Skin / Dermatological diseases (e.g. chronic eczema or dermatitis, atopic dermatitis)',
+    chronicDiseaseChronicDigestive: 'Chronic Digestive Conditions (e.g. peptic ulcer disease, chronic gastritis)',
+    chronicDiseaseChronicPain: 'Chronic Pain Disorders / Fibromyalgia / generalized chronic pain',
+    chronicDiseaseNeurologicalBeyondDementia: 'Neurological disorders beyond dementia (e.g. Parkinson\'s disease, neuropathies, other chronic neurological conditions)',
+    chronicDiseaseChronicMentalHealth: 'Chronic Mental Health Disorders beyond depression (e.g. anxiety disorders, bipolar disorder, chronic schizophrenia, etc.)',
+    chronicDiseaseChronicEyeDiseases: 'Chronic Eye Diseases (e.g. glaucoma, macular degeneration)',
+    chronicDiseaseChronicHearing: 'Chronic Hearing Disorders / Hearing Loss',
+    chronicDiseaseChronicOralDental: 'Chronic Oral / Dental Diseases (e.g. dental decay, gum disease)',
+    chronicDiseaseChronicRespiratoryAllergies: 'Chronic Respiratory Allergies / Chronic Rhinitis / Sinusitis',
+    chronicDiseaseChronicUrogenital: 'Chronic Urogenital Diseases',
+    chronicDiseaseChronicMetabolic: 'Chronic Metabolic Diseases',
+    chronicDiseaseOthers: 'Others',
     hematology: 'Hematology',
     biochemistry: 'Biochemistry',
     documents: 'Documents',
