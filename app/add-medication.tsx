@@ -1,157 +1,147 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Clock, AlertCircle, FileText, User, Calendar as CalendarIcon, X, Camera } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { ArrowLeft, FileText, User } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { trpc } from '@/lib/trpc';
-
-interface Reminder {
-  time: string;
-  days: string[];
-}
+import { useLanguage } from '@/contexts/LanguageContext';
+import { medicationsApiService, MedicationCreate } from '@/lib/api/medications-api';
+import DatePicker from '@/components/DatePicker';
 
 export default function AddMedicationScreen() {
   const router = useRouter();
+  const { t, language } = useLanguage();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Basic fields
   const [name, setName] = useState('');
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('');
-  const [time, setTime] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [instructions, setInstructions] = useState('');
   const [purpose, setPurpose] = useState('');
   const [prescribedBy, setPrescribedBy] = useState('');
-  const [prescriptionDate, setPrescriptionDate] = useState('');
-  const [prescriptionId, setPrescriptionId] = useState('');
-  const [reminders, setReminders] = useState<Reminder[]>([
-    { time: '08:00', days: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'] }
-  ]);
-  const [prescriptionImage, setPrescriptionImage] = useState<string | null>(null);
-  const [medicationType, setMedicationType] = useState<'regular' | 'sos'>('regular');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [instructions, setInstructions] = useState('');
 
-  const addMedicationMutation = trpc.medications.add.useMutation({
-    onSuccess: () => {
-      Alert.alert('Sucesso', 'Medicação adicionada com sucesso!');
-      router.back();
-    },
-    onError: (error) => {
-      Alert.alert('Erro', `Ocorreu um erro ao adicionar a medicação: ${error.message}`);
-      setIsSubmitting(false);
+  // Date fields - auto-set end date to tomorrow when start date changes
+  const getDefaultStartDate = () => {
+    return new Date().toISOString().split('T')[0];
+  };
+
+  const getDefaultEndDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
+
+  const [startDate, setStartDate] = useState(getDefaultStartDate());
+  const [endDate, setEndDate] = useState(getDefaultEndDate());
+
+  // Prescription fields
+  const [rxNumber, setRxNumber] = useState('');
+  const [pharmacy, setPharmacy] = useState('');
+  const [originalQuantity, setOriginalQuantity] = useState('');
+  const [refillsRemaining, setRefillsRemaining] = useState('');
+  const [lastFilledDate, setLastFilledDate] = useState(getDefaultStartDate());
+
+  const handleStartDateChange = (dateStr: string) => {
+    setStartDate(dateStr);
+    // Auto-set end date to day after start date
+    if (dateStr) {
+      const start = new Date(dateStr);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      setEndDate(end.toISOString().split('T')[0]);
     }
-  });
-
-  const handleAddReminder = () => {
-    setReminders([
-      ...reminders,
-      { time: '08:00', days: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'] }
-    ]);
   };
 
-  const handleRemoveReminder = (index: number) => {
-    const updatedReminders = [...reminders];
-    updatedReminders.splice(index, 1);
-    setReminders(updatedReminders);
-  };
-
-  const handleUpdateReminderTime = (index: number, newTime: string) => {
-    const updatedReminders = [...reminders];
-    updatedReminders[index] = {
-      ...updatedReminders[index],
-      time: newTime
-    };
-    setReminders(updatedReminders);
-  };
-
-  const handleToggleDay = (reminderIndex: number, day: string) => {
-    const updatedReminders = [...reminders];
-    const currentDays = updatedReminders[reminderIndex].days;
-    
-    if (currentDays.includes(day)) {
-      updatedReminders[reminderIndex].days = currentDays.filter(d => d !== day);
-    } else {
-      updatedReminders[reminderIndex].days = [...currentDays, day];
-    }
-    
-    setReminders(updatedReminders);
-  };
-
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de permissão para aceder à sua galeria.');
+  const handleSave = async () => {
+    // Validate required fields
+    if (!name.trim()) {
+      Alert.alert(
+        t.validationError || 'Validation Error',
+        t.medicationsPleaseFillInName || 'Please fill in the medication name.'
+      );
       return;
     }
-    
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    
-    if (!result.canceled) {
-      setPrescriptionImage(result.assets[0].uri);
-    }
-  };
-
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de permissão para aceder à sua câmara.');
+    if (!dosage.trim()) {
+      Alert.alert(
+        t.validationError || 'Validation Error',
+        t.medicationsPleaseFillInDosage || 'Please fill in the dosage.'
+      );
       return;
     }
-    
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    
-    if (!result.canceled) {
-      setPrescriptionImage(result.assets[0].uri);
+    if (!frequency.trim()) {
+      Alert.alert(
+        t.validationError || 'Validation Error',
+        t.medicationsPleaseFillInFrequency || 'Please fill in the frequency.'
+      );
+      return;
     }
-  };
+    if (!startDate) {
+      Alert.alert(
+        t.validationError || 'Validation Error',
+        t.medicationsPleaseFillInStartDate || 'Please fill in the start date.'
+      );
+      return;
+    }
+    if (!endDate) {
+      Alert.alert(
+        t.validationError || 'Validation Error',
+        t.medicationsPleaseFillInEndDate || 'Please fill in the end date.'
+      );
+      return;
+    }
 
-  const handleSave = () => {
-    if (!name || !dosage || !frequency) {
-      Alert.alert('Campos obrigatórios', 'Por favor, preencha os campos obrigatórios: Nome, Dosagem e Frequência.');
+    // Validate end date is after start date
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    if (endDateObj <= startDateObj) {
+      Alert.alert(
+        t.validationError || 'Validation Error',
+        t.medicationsEndDateMustBeAfterStartDate || 'End date must be after start date.'
+      );
       return;
     }
 
     setIsSubmitting(true);
-
-    const medicationData = {
-      name,
-      dosage,
-      frequency,
-      time: medicationType === 'regular' ? time : null,
-      startDate: medicationType === 'regular' ? startDate : null,
-      endDate: medicationType === 'regular' ? endDate : null,
-      instructions,
-      purpose,
-      prescribedBy,
-      prescriptionDate,
-      prescriptionId,
-      reminders: medicationType === 'regular' ? reminders : [],
-      medicationType,
-      hasPrescriptionImage: !!prescriptionImage
-    };
-
     try {
-      addMedicationMutation.mutate(medicationData);
-    } catch (error) {
-      console.error('Error submitting medication:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao adicionar a medicação.');
+      const medicationData: MedicationCreate = {
+        medication_name: name.trim(),
+        medication_type: 'prescription',
+        dosage: dosage.trim() || undefined,
+        frequency: frequency.trim() || undefined,
+        purpose: purpose.trim() || undefined,
+        instructions: instructions.trim() || undefined,
+        start_date: startDate,
+        end_date: endDate || undefined,
+        // Prescription information
+        rx_number: rxNumber.trim() || undefined,
+        pharmacy: pharmacy.trim() || undefined,
+        original_quantity: originalQuantity ? parseInt(originalQuantity) : undefined,
+        refills_remaining: refillsRemaining ? parseInt(refillsRemaining) : undefined,
+        last_filled_date: lastFilledDate || undefined,
+      };
+
+      await medicationsApiService.createMedication(medicationData);
+      
+      Alert.alert(
+        t.save || 'Success',
+        t.medicationAddedSuccessfully || 'Medication added successfully!',
+        [
+          {
+            text: t.confirm || 'OK',
+            onPress: () => router.back()
+          }
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error adding medication:', error);
+      Alert.alert(
+        t.validationError || 'Error',
+        error.message || (t.medicationAddFailed || 'Failed to add medication. Please try again.')
+      );
+    } finally {
       setIsSubmitting(false);
     }
   };
-
-  const weekdays = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
-  const fullWeekdays = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
   return (
     <View style={styles.container}>
@@ -159,10 +149,11 @@ export default function AddMedicationScreen() {
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => router.back()}
+          disabled={isSubmitting}
         >
           <ArrowLeft size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Adicionar Medicação</Text>
+        <Text style={styles.headerTitle}>{t.medicationsAddNewMedication || 'Add New Medication'}</Text>
         <View style={styles.spacer} />
       </View>
 
@@ -171,294 +162,222 @@ export default function AddMedicationScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>Tipo de Medicação</Text>
-        <View style={styles.medicationTypeContainer}>
-          <TouchableOpacity
-            style={[
-              styles.medicationTypeButton,
-              medicationType === 'regular' && styles.medicationTypeSelected
-            ]}
-            onPress={() => setMedicationType('regular')}
-          >
-            <Text 
-              style={[
-                styles.medicationTypeText,
-                medicationType === 'regular' && styles.medicationTypeTextSelected
-              ]}
-            >
-              Regular
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.medicationTypeButton,
-              medicationType === 'sos' && styles.medicationTypeSelected
-            ]}
-            onPress={() => setMedicationType('sos')}
-          >
-            <Text 
-              style={[
-                styles.medicationTypeText,
-                medicationType === 'sos' && styles.medicationTypeTextSelected
-              ]}
-            >
-              SOS
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.sectionDescription}>
+          {t.medicationsEnterDetails || 'Enter the details of your new medication.'}
+        </Text>
 
-        <Text style={styles.sectionTitle}>Informações Básicas</Text>
+        {/* Name - Required */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Nome do Medicamento *</Text>
+          <Text style={styles.label}>
+            {t.medicationsName || 'Name'} <Text style={styles.required}>*</Text>
+          </Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: Loratadina"
+            placeholder={t.medicationsNamePlaceholder || 'Enter medication name'}
             value={name}
             onChangeText={setName}
+            editable={!isSubmitting}
           />
         </View>
 
+        {/* Dosage - Required */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Dosagem *</Text>
+          <Text style={styles.label}>
+            {t.medicationsDosage || 'Dosage'} <Text style={styles.required}>*</Text>
+          </Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: 10mg"
+            placeholder={t.medicationsDosagePlaceholder || 'Enter dosage (e.g., 10mg)'}
             value={dosage}
             onChangeText={setDosage}
+            editable={!isSubmitting}
           />
         </View>
 
+        {/* Frequency - Required */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Frequência *</Text>
+          <Text style={styles.label}>
+            {t.medicationsFrequency || 'Frequency'} <Text style={styles.required}>*</Text>
+          </Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: 1x ao dia"
+            placeholder={t.medicationsFrequencyPlaceholder || 'Enter frequency (e.g., Once daily)'}
             value={frequency}
             onChangeText={setFrequency}
+            editable={!isSubmitting}
           />
         </View>
 
-        {medicationType === 'regular' && (
-          <>
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Horário</Text>
-              <View style={styles.inputWithIcon}>
-                <Clock size={20} color={Colors.primary} />
-                <TextInput
-                  style={styles.iconInput}
-                  placeholder="Ex: 08:00"
-                  value={time}
-                  onChangeText={setTime}
-                />
-              </View>
-            </View>
-
-            <View style={styles.dateContainer}>
-              <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-                <Text style={styles.label}>Data de Início</Text>
-                <View style={styles.inputWithIcon}>
-                  <CalendarIcon size={20} color={Colors.primary} />
-                  <TextInput
-                    style={styles.iconInput}
-                    placeholder="AAAA-MM-DD"
-                    value={startDate}
-                    onChangeText={setStartDate}
-                  />
-                </View>
-              </View>
-
-              <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
-                <Text style={styles.label}>Data de Fim (opcional)</Text>
-                <View style={styles.inputWithIcon}>
-                  <CalendarIcon size={20} color={Colors.primary} />
-                  <TextInput
-                    style={styles.iconInput}
-                    placeholder="AAAA-MM-DD"
-                    value={endDate}
-                    onChangeText={setEndDate}
-                  />
-                </View>
-              </View>
-            </View>
-          </>
-        )}
-
+        {/* Purpose - Optional */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Instruções</Text>
-          <View style={styles.inputWithIcon}>
-            <AlertCircle size={20} color={Colors.primary} />
-            <TextInput
-              style={styles.iconInput}
-              placeholder="Ex: Tomar em jejum"
-              value={instructions}
-              onChangeText={setInstructions}
-            />
-          </View>
+          <Text style={styles.label}>{t.medicationsPurpose || 'Purpose'}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t.medicationsPurposePlaceholder || 'What is this medication for?'}
+            value={purpose}
+            onChangeText={setPurpose}
+            editable={!isSubmitting}
+          />
         </View>
 
+        {/* Prescribed By - Optional */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Finalidade</Text>
-          <View style={styles.inputWithIcon}>
-            <FileText size={20} color={Colors.primary} />
-            <TextInput
-              style={styles.iconInput}
-              placeholder="Ex: Tratamento de alergias"
-              value={purpose}
-              onChangeText={setPurpose}
-            />
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Informações da Prescrição</Text>
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Prescrito por</Text>
+          <Text style={styles.label}>{t.medicationsPrescribedBy || 'Prescribed By'}</Text>
           <View style={styles.inputWithIcon}>
             <User size={20} color={Colors.primary} />
             <TextInput
               style={styles.iconInput}
-              placeholder="Ex: Dra. Ana Ferreira"
+              placeholder={t.medicationsPrescribedByPlaceholder || "Doctor's name"}
               value={prescribedBy}
               onChangeText={setPrescribedBy}
+              editable={!isSubmitting}
             />
           </View>
         </View>
 
-        <View style={styles.dateContainer}>
-          <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-            <Text style={styles.label}>Data da Prescrição</Text>
-            <View style={styles.inputWithIcon}>
-              <CalendarIcon size={20} color={Colors.primary} />
-              <TextInput
-                style={styles.iconInput}
-                placeholder="AAAA-MM-DD"
-                value={prescriptionDate}
-                onChangeText={setPrescriptionDate}
+        {/* Start Date and End Date - Required (in one row) */}
+        <View style={styles.formGroup}>
+          <View style={styles.twoColumnRow}>
+            <View style={styles.halfWidth}>
+              <DatePicker
+                value={startDate}
+                onChange={handleStartDateChange}
+                placeholder={t.medicationsStartDate || 'Select start date'}
+                label={t.medicationsStartDate || 'Start Date'}
+                required
+                maximumDate={endDate ? new Date(endDate) : undefined}
+                disabled={isSubmitting}
+                style={{ marginBottom: 0 }}
+              />
+            </View>
+            <View style={styles.halfWidth}>
+              <DatePicker
+                value={endDate}
+                onChange={(dateStr) => {
+                  setEndDate(dateStr);
+                }}
+                placeholder={t.medicationsEndDate || 'Select end date'}
+                label={t.medicationsEndDate || 'End Date'}
+                required
+                minimumDate={startDate ? new Date(new Date(startDate).getTime() + 86400000) : undefined}
+                disabled={isSubmitting}
+                error={startDate && endDate && new Date(endDate) <= new Date(startDate)}
+                style={{ marginBottom: 0 }}
               />
             </View>
           </View>
-
-          <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
-            <Text style={styles.label}>ID da Prescrição</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: RX-2023-1245"
-              value={prescriptionId}
-              onChangeText={setPrescriptionId}
-            />
-          </View>
+          {startDate && endDate && new Date(endDate) <= new Date(startDate) && (
+            <Text style={styles.errorText}>
+              {t.medicationsEndDateMustBeAfterStartDate || 'End date must be after start date.'}
+            </Text>
+          )}
         </View>
 
+        {/* Instructions - Optional */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Imagem da Prescrição</Text>
-          <View style={styles.imageUploadContainer}>
-            {prescriptionImage ? (
-              <View style={styles.imagePreviewContainer}>
-                <Image 
-                  source={{ uri: prescriptionImage }} 
-                  style={styles.imagePreview} 
+          <Text style={styles.label}>{t.medicationsInstructions || 'Instructions'}</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder={t.medicationsInstructionsPlaceholder || 'Enter instructions'}
+            value={instructions}
+            onChangeText={setInstructions}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            editable={!isSubmitting}
+          />
+        </View>
+
+        {/* Prescription Section */}
+        <View style={styles.prescriptionSection}>
+          <Text style={styles.sectionTitle}>{t.medicationsPrescription || 'Prescription'}</Text>
+          
+          <View style={styles.prescriptionFields}>
+            {/* Rx Number */}
+            <View style={styles.formGroup}>
+              <Text style={styles.smallLabel}>{t.medicationsRxNumber || 'Rx Number'}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t.medicationsRxNumberPlaceholder || 'Prescription number'}
+                value={rxNumber}
+                onChangeText={setRxNumber}
+                editable={!isSubmitting}
+              />
+            </View>
+
+            {/* Pharmacy */}
+            <View style={styles.formGroup}>
+              <Text style={styles.smallLabel}>{t.medicationsPharmacy || 'Pharmacy'}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t.medicationsPharmacyPlaceholder || 'Pharmacy name'}
+                value={pharmacy}
+                onChangeText={setPharmacy}
+                editable={!isSubmitting}
+              />
+            </View>
+
+            {/* Two column layout for Quantity and Refills */}
+            <View style={styles.twoColumnRow}>
+              <View style={[styles.formGroup, styles.halfWidth]}>
+                <Text style={styles.smallLabel}>{t.medicationsQuantity || 'Quantity'}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t.medicationsQuantityPlaceholder || 'Original quantity'}
+                  value={originalQuantity}
+                  onChangeText={setOriginalQuantity}
+                  keyboardType="numeric"
+                  editable={!isSubmitting}
                 />
-                <TouchableOpacity 
-                  style={styles.removeImageButton}
-                  onPress={() => setPrescriptionImage(null)}
-                >
-                  <X size={20} color={Colors.danger} />
-                </TouchableOpacity>
               </View>
-            ) : (
-              <View style={styles.uploadButtonsContainer}>
-                <TouchableOpacity 
-                  style={[styles.uploadButton, { marginRight: 8 }]}
-                  onPress={pickImage}
-                >
-                  <FileText size={20} color={Colors.background} />
-                  <Text style={styles.uploadButtonText}>Galeria</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.uploadButton, { marginLeft: 8 }]}
-                  onPress={takePhoto}
-                >
-                  <Camera size={20} color={Colors.background} />
-                  <Text style={styles.uploadButtonText}>Câmara</Text>
-                </TouchableOpacity>
+
+              <View style={[styles.formGroup, styles.halfWidth]}>
+                <Text style={styles.smallLabel}>{t.medicationsRefillsRemaining || 'Refills Remaining'}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t.medicationsRefillsRemainingPlaceholder || 'Number of refills'}
+                  value={refillsRemaining}
+                  onChangeText={setRefillsRemaining}
+                  keyboardType="numeric"
+                  editable={!isSubmitting}
+                />
               </View>
-            )}
+            </View>
+
+            {/* Last Filled Date */}
+            <View style={styles.formGroup}>
+              <DatePicker
+                value={lastFilledDate}
+                onChange={setLastFilledDate}
+                placeholder={t.medicationsLastFilled || 'Select date'}
+                label={t.medicationsLastFilled || 'Last Filled'}
+                disabled={isSubmitting}
+                style={{ marginBottom: 0 }}
+              />
+            </View>
           </View>
         </View>
 
-        {medicationType === 'regular' && (
-          <>
-            <View style={styles.remindersSection}>
-              <View style={styles.remindersSectionHeader}>
-                <Text style={styles.sectionTitle}>Lembretes</Text>
-                <TouchableOpacity 
-                  style={styles.addReminderButton}
-                  onPress={handleAddReminder}
-                >
-                  <Text style={styles.addReminderText}>+ Adicionar</Text>
-                </TouchableOpacity>
-              </View>
-              
-              {reminders.map((reminder, index) => (
-                <View key={index} style={styles.reminderItem}>
-                  <View style={styles.reminderHeader}>
-                    <View style={styles.reminderTimeContainer}>
-                      <Clock size={16} color={Colors.primary} />
-                      <TextInput
-                        style={styles.reminderTimeInput}
-                        value={reminder.time}
-                        onChangeText={(text) => handleUpdateReminderTime(index, text)}
-                        placeholder="HH:MM"
-                      />
-                    </View>
-                    
-                    <TouchableOpacity 
-                      style={styles.deleteReminderButton}
-                      onPress={() => handleRemoveReminder(index)}
-                    >
-                      <X size={18} color={Colors.danger} />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <View style={styles.daysContainer}>
-                    {fullWeekdays.map((day, dayIndex) => (
-                      <TouchableOpacity
-                        key={dayIndex}
-                        style={[
-                          styles.dayButton,
-                          reminder.days.includes(day) && styles.dayButtonSelected
-                        ]}
-                        onPress={() => handleToggleDay(index, day)}
-                      >
-                        <Text 
-                          style={[
-                            styles.dayButtonText,
-                            reminder.days.includes(day) && styles.dayButtonTextSelected
-                          ]}
-                        >
-                          {weekdays[dayIndex]}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-
+        {/* Save Button */}
         <TouchableOpacity 
           style={[
             styles.saveButton,
-            isSubmitting && styles.saveButtonDisabled
+            (isSubmitting || !name || !dosage || !frequency || !startDate || !endDate || (startDate && endDate && new Date(endDate) <= new Date(startDate))) && styles.saveButtonDisabled
           ]}
           onPress={handleSave}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !name || !dosage || !frequency || !startDate || !endDate || (startDate && endDate && new Date(endDate) <= new Date(startDate))}
+          activeOpacity={0.8}
         >
-          <Text style={styles.saveButtonText}>
-            {isSubmitting ? "A guardar..." : "Guardar Medicação"}
-          </Text>
+          {isSubmitting ? (
+            <>
+              <ActivityIndicator size="small" color={Colors.background} />
+              <Text style={styles.saveButtonText}>{t.medicationsSaving || 'Saving...'}</Text>
+            </>
+          ) : (
+            <Text style={styles.saveButtonText}>
+              {t.medicationsAddMedication || 'Add Medication'}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -490,7 +409,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   spacer: {
-    width: 24,
+    width: 32,
   },
   scrollView: {
     flex: 1,
@@ -499,50 +418,38 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 16,
-    marginTop: 24,
-  },
-  medicationTypeContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  medicationTypeButton: {
-    flex: 1,
-    backgroundColor: Colors.secondary,
-    padding: 12,
-    alignItems: 'center',
-    marginHorizontal: 4,
-    borderRadius: 8,
-  },
-  medicationTypeSelected: {
-    backgroundColor: Colors.primary,
-  },
-  medicationTypeText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.text,
-  },
-  medicationTypeTextSelected: {
-    color: Colors.background,
+  sectionDescription: {
+    fontSize: 14,
+    color: Colors.textLight,
+    marginBottom: 24,
   },
   formGroup: {
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: Colors.text,
     marginBottom: 8,
+  },
+  smallLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.text,
+    marginBottom: 6,
+  },
+  required: {
+    color: Colors.danger,
   },
   input: {
     backgroundColor: Colors.secondary,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minHeight: 48,
   },
   inputWithIcon: {
     flexDirection: 'row',
@@ -550,137 +457,71 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary,
     borderRadius: 8,
     padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minHeight: 48,
   },
   iconInput: {
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  imageUploadContainer: {
-    backgroundColor: Colors.secondary,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 150,
-  },
-  uploadButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  uploadButtonText: {
-    color: Colors.background,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  imagePreviewContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 4,
-  },
-  remindersSection: {
-    marginTop: 16,
-  },
-  remindersSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  addReminderButton: {
-    padding: 4,
-  },
-  addReminderText: {
-    fontSize: 14,
-    color: Colors.primary,
-    fontWeight: 'bold',
-  },
-  reminderItem: {
-    backgroundColor: Colors.secondary,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  reminderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  reminderTimeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  reminderTimeInput: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: 'bold',
     color: Colors.text,
+    minHeight: 24,
   },
-  deleteReminderButton: {
-    padding: 4,
+  textArea: {
+    minHeight: 100,
+    paddingTop: 12,
   },
-  daysContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  inputError: {
+    borderColor: Colors.danger,
   },
-  dayButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dayButtonSelected: {
-    backgroundColor: Colors.primary,
-  },
-  dayButtonText: {
+  errorText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: Colors.text,
+    color: Colors.danger,
+    marginTop: 4,
   },
-  dayButtonTextSelected: {
-    color: Colors.background,
+  prescriptionSection: {
+    marginTop: 8,
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: Colors.secondary,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  prescriptionFields: {
+    gap: 0,
+  },
+  twoColumnRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfWidth: {
+    flex: 1,
   },
   saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.primary,
     borderRadius: 8,
     padding: 16,
-    alignItems: 'center',
     marginTop: 32,
+    gap: 8,
+    minHeight: 50,
   },
   saveButtonDisabled: {
-    backgroundColor: Colors.secondary,
-    opacity: 0.7,
+    backgroundColor: Colors.primary,
+    opacity: 0.5,
   },
   saveButtonText: {
-    color: Colors.background,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },

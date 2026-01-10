@@ -1,758 +1,537 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, SafeAreaView, Image, Modal, FlatList, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Modal, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Calendar, Clock, MapPin, Video, Phone, Filter, ChevronDown, Check, X, Info } from 'lucide-react-native';
+import { ArrowLeft, Calendar, Clock, MapPin, Video, Phone, Search, Check, X, Loader2 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { doctors, specialties, insuranceProviders, appointmentTypes, locations } from '@/constants/doctors';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useDoctors } from '@/hooks/useDoctors';
+import { useAvailability } from '@/hooks/useAvailability';
+import { useProfile } from '@/hooks/useProfile';
+import { appointmentsApiService, Doctor, TimeSlot } from '@/lib/api/appointments-api';
+import DatePicker from '@/components/DatePicker';
 
 export default function AddAppointmentScreen() {
   const router = useRouter();
+  const { t, language } = useLanguage();
+  const { profile } = useProfile();
   
-  // Filters
-  const [selectedSpecialty, setSelectedSpecialty] = useState('all');
-  const [selectedInsurance, setSelectedInsurance] = useState('all');
-  const [selectedType, setSelectedType] = useState('all');
-  const [selectedLocation, setSelectedLocation] = useState('all');
+  // Search and filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
   
   // Selection states
-  const [selectedDoctor, setSelectedDoctor] = useState<number | null>(null);
-  const [selectedDoctorLocationIndex, setSelectedDoctorLocationIndex] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [selectedAppointmentType, setSelectedAppointmentType] = useState<{ id: string; name?: string; category?: string } | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
   const [notes, setNotes] = useState('');
+  const [phone, setPhone] = useState('');
   
   // Modal states
-  const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
-  const [showInsuranceModal, setShowInsuranceModal] = useState(false);
-  const [showLocationModal, setShowLocationModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
-  const [showDoctorInfoModal, setShowDoctorInfoModal] = useState(false);
-  const [selectedDoctorInfo, setSelectedDoctorInfo] = useState<any>(null);
   
-  // Filtered data
-  const [filteredDoctors, setFilteredDoctors] = useState(doctors);
-  const [availableDates, setAvailableDates] = useState<{date: string, locationIndex: number}[]>([]);
-  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
-
-  // Apply filters to doctors
+  // Loading and booking states
+  const [isBooking, setIsBooking] = useState(false);
+  const [loadingMoreDoctors, setLoadingMoreDoctors] = useState(false);
+  
+  // Hooks
+  const { doctors, loading: loadingDoctors, error: doctorsError, hasMore, loadDoctors, reset: resetDoctors } = useDoctors();
+  const { availableDates, availableTimes, loading: loadingAvailability, loadAvailableDates, loadAvailableTimes, reset: resetAvailability } = useAvailability();
+  
+  // Load doctors on mount and when search/location changes
   useEffect(() => {
-    let filtered = [...doctors];
-    
-    // Filter by specialty
-    if (selectedSpecialty !== 'all') {
-      filtered = filtered.filter(doctor => doctor.specialty === selectedSpecialty);
-    }
-    
-    // Filter by insurance
-    if (selectedInsurance !== 'all') {
-      filtered = filtered.filter(doctor => 
-        doctor.acceptedInsurance.includes(selectedInsurance)
-      );
-    }
-    
-    // Filter by consultation type
-    if (selectedType !== 'all') {
-      filtered = filtered.filter(doctor => 
-        doctor.consultationTypes.includes(selectedType)
-      );
-    }
-    
-    // Filter by location
-    if (selectedLocation !== 'all') {
-      filtered = filtered.filter(doctor => 
-        doctor.locations.some(loc => loc.city.toLowerCase().includes(selectedLocation.toLowerCase()))
-      );
-    }
-    
-    setFilteredDoctors(filtered);
-    
-    // Reset selections if needed
-    if (selectedDoctor && !filtered.some(d => d.id === selectedDoctor)) {
-      setSelectedDoctor(null);
-      setSelectedDoctorLocationIndex(null);
-      setSelectedDate(null);
-      setSelectedTime(null);
-      setAvailableDates([]);
-      setAvailableTimeSlots([]);
-    }
-  }, [selectedSpecialty, selectedInsurance, selectedType, selectedLocation]);
-
-  // Update available dates when doctor is selected
+    resetDoctors();
+    loadDoctors({ search: searchQuery, location: locationFilter, reset: true });
+  }, [searchQuery, locationFilter]);
+  
+  // Load available dates when doctor and appointment type are selected
   useEffect(() => {
-    if (selectedDoctor) {
-      const doctor = doctors.find(d => d.id === selectedDoctor);
-      if (doctor) {
-        // Group dates by location
-        const dates = doctor.availability.map(a => ({
-          date: a.date,
-          locationIndex: a.locationIndex
-        }));
-        
-        // Filter dates by selected location if needed
-        let filteredDates = dates;
-        if (selectedLocation !== 'all') {
-          const locationCity = selectedLocation.toLowerCase();
-          filteredDates = dates.filter(dateObj => {
-            const location = doctor.locations[dateObj.locationIndex];
-            return location.city.toLowerCase().includes(locationCity);
-          });
-        }
-        
-        setAvailableDates(filteredDates);
-        
-        // Reset date and time if previously selected
-        setSelectedDate(null);
-        setSelectedDoctorLocationIndex(null);
-        setSelectedTime(null);
-        setAvailableTimeSlots([]);
-      }
+    if (selectedDoctor?.acuityCalendarId && selectedAppointmentType?.id) {
+      const appointmentTypeId = parseInt(selectedAppointmentType.id, 10);
+      loadAvailableDates(selectedDoctor.acuityCalendarId, appointmentTypeId);
     } else {
-      setAvailableDates([]);
-      setSelectedDate(null);
-      setSelectedDoctorLocationIndex(null);
-      setSelectedTime(null);
+      resetAvailability();
+      setSelectedDate('');
+      setSelectedTimeSlot(null);
     }
-  }, [selectedDoctor, selectedLocation]);
-
-  // Update available time slots when date is selected
+  }, [selectedDoctor, selectedAppointmentType]);
+  
+  // Load available times when date is selected
   useEffect(() => {
-    if (selectedDoctor && selectedDate && selectedDoctorLocationIndex !== null) {
-      const doctor = doctors.find(d => d.id === selectedDoctor);
-      if (doctor) {
-        const dateAvailability = doctor.availability.find(a => 
-          a.date === selectedDate && a.locationIndex === selectedDoctorLocationIndex
-        );
-        
-        if (dateAvailability) {
-          setAvailableTimeSlots(dateAvailability.slots);
-        } else {
-          setAvailableTimeSlots([]);
-        }
-        setSelectedTime(null);
-      }
+    if (selectedDoctor?.acuityCalendarId && selectedDate && selectedAppointmentType?.id) {
+      const appointmentTypeId = parseInt(selectedAppointmentType.id, 10);
+      loadAvailableTimes(selectedDoctor.acuityCalendarId, selectedDate, appointmentTypeId);
     } else {
-      setAvailableTimeSlots([]);
-      setSelectedTime(null);
+      setSelectedTimeSlot(null);
     }
-  }, [selectedDoctor, selectedDate, selectedDoctorLocationIndex]);
-
-  const handleSave = () => {
-    // In a real app, you would save the appointment here
-    router.back();
+  }, [selectedDoctor, selectedDate, selectedAppointmentType]);
+  
+  // Get user info for booking
+  const getUserInfo = () => {
+    const email = profile?.email || '';
+    const fullName = profile?.full_name || '';
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    return { email, firstName, lastName };
   };
-
+  
+  // Build ISO datetime from date and time slot
+  const buildDateTimeISO = (date: string, timeSlot: TimeSlot): string => {
+    if (timeSlot.isoTime) {
+      return timeSlot.isoTime;
+    }
+    if (timeSlot.rawTime) {
+      // Try to parse rawTime
+      if (timeSlot.rawTime.includes('T')) {
+        return timeSlot.rawTime;
+      }
+      // Build from time string like "14:30"
+      const match = timeSlot.rawTime.match(/(\d{1,2}):(\d{2})/);
+      if (match) {
+        const hours = match[1].padStart(2, '0');
+        const minutes = match[2];
+        return `${date}T${hours}:${minutes}:00`;
+      }
+    }
+    // Fallback: use time field
+    if (timeSlot.time) {
+      const match = timeSlot.time.match(/(\d{1,2}):(\d{2})/);
+      if (match) {
+        const hours = match[1].padStart(2, '0');
+        const minutes = match[2];
+        return `${date}T${hours}:${minutes}:00`;
+      }
+    }
+    return `${date}T12:00:00`; // Default fallback
+  };
+  
+  const handleBookAppointment = async () => {
+    // Validation
+    if (!selectedDoctor) {
+      Alert.alert(t.validationError || 'Error', 'Please select a doctor');
+      return;
+    }
+    
+    if (!selectedAppointmentType) {
+      Alert.alert(t.validationError || 'Error', 'Please select an appointment type');
+      return;
+    }
+    
+    if (!selectedDate) {
+      Alert.alert(t.validationError || 'Error', 'Please select a date');
+      return;
+    }
+    
+    if (!selectedTimeSlot) {
+      Alert.alert(t.validationError || 'Error', 'Please select a time');
+      return;
+    }
+    
+    // Validate phone for phone appointments
+    const isPhoneCategory = selectedAppointmentType.category?.toLowerCase() === 'phone';
+    if (isPhoneCategory && !phone.trim()) {
+      Alert.alert(t.validationError || 'Error', 'Please provide a phone number for phone appointments');
+      return;
+    }
+    
+    // Get user info
+    const { email, firstName, lastName } = getUserInfo();
+    
+    if (!email) {
+      Alert.alert(t.validationError || 'Error', 'User email not found. Please update your profile.');
+      return;
+    }
+    
+    if (!lastName || lastName.trim() === '') {
+      Alert.alert(t.validationError || 'Error', 'Please complete your profile with your full name');
+      return;
+    }
+    
+    setIsBooking(true);
+    
+    try {
+      const datetimeISO = buildDateTimeISO(selectedDate, selectedTimeSlot);
+      const appointmentTypeId = parseInt(selectedAppointmentType.id, 10);
+      
+      const appointmentData = {
+        calendar_id: selectedDoctor.acuityCalendarId || '',
+        appointment_type_id: appointmentTypeId || undefined,
+        datetime: datetimeISO,
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: isPhoneCategory ? phone.trim() : undefined,
+        note: notes.trim() || undefined,
+        timezone: selectedDoctor.timezone || undefined,
+      };
+      
+      await appointmentsApiService.bookAppointment(appointmentData);
+      
+      Alert.alert(
+        t.success || 'Success',
+        'Appointment booked successfully!',
+        [
+          {
+            text: t.confirm || 'OK',
+            onPress: () => router.back()
+          }
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error booking appointment:', error);
+      Alert.alert(
+        t.validationError || 'Error',
+        error.message || 'Failed to book appointment. Please try again.'
+      );
+    } finally {
+      setIsBooking(false);
+    }
+  };
+  
   const formatDate = (dateString: string) => {
-    const [year, month, day] = dateString.split('-');
-    return `${day}/${month}/${year}`;
-  };
-
-  const getSpecialtyName = (id: string) => {
-    const specialty = specialties.find(s => s.id === id);
-    return specialty ? specialty.name : 'Todas as especialidades';
-  };
-
-  const getInsuranceName = (id: string) => {
-    const insurance = insuranceProviders.find(i => i.id === id);
-    return insurance ? insurance.name : 'Todos os seguros';
-  };
-
-  const getLocationName = (id: string) => {
-    const location = locations.find(l => l.id === id);
-    return location ? location.name : 'Todas as localizações';
-  };
-
-  const getAppointmentTypeName = (id: string) => {
-    const type = appointmentTypes.find(t => t.id === id);
-    return type ? type.name : 'Todos os tipos';
-  };
-
-  const getAppointmentTypeIcon = (id: string) => {
-    switch (id) {
-      case 'presencial':
-        return <MapPin size={20} color={Colors.primary} />;
-      case 'video':
-        return <Video size={20} color={Colors.primary} />;
-      case 'telefone':
-        return <Phone size={20} color={Colors.primary} />;
-      default:
-        return null;
+    try {
+      const date = new Date(dateString);
+      const locale = language === 'pt-PT' ? 'pt-PT' : language === 'es-ES' ? 'es-ES' : 'en-US';
+      return date.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
+      return dateString;
     }
   };
-
-  const showDoctorDetails = (doctor: any) => {
-    setSelectedDoctorInfo(doctor);
-    setShowDoctorInfoModal(true);
-  };
-
-  // Get doctor location based on selected doctor and date
-  const getDoctorLocation = () => {
-    if (!selectedDoctor || selectedDoctorLocationIndex === null) return null;
+  
+  const formatTime = (timeSlot: TimeSlot) => {
+    // Use displayTime if available (already formatted by API service)
+    if (timeSlot.displayTime) {
+      return timeSlot.displayTime;
+    }
     
-    const doctor = doctors.find(d => d.id === selectedDoctor);
-    return doctor && doctor.locations[selectedDoctorLocationIndex] 
-      ? doctor.locations[selectedDoctorLocationIndex].address 
-      : null;
+    // Use time field if it's already in HH:mm format
+    if (timeSlot.time && !timeSlot.time.includes('T')) {
+      const match = timeSlot.time.match(/(\d{1,2}):(\d{2})/);
+      if (match) {
+        return `${match[1].padStart(2, '0')}:${match[2]}`;
+      }
+      return timeSlot.time;
+    }
+    
+    // Try to extract from ISO datetime
+    const isoString = timeSlot.isoTime || timeSlot.time || timeSlot.rawTime || '';
+    if (isoString.includes('T')) {
+      try {
+        // Normalize timezone format (+0100 -> +01:00)
+        const normalized = isoString.replace(/([+-])(\d{2})(\d{2})$/, '$1$2:$3');
+        const date = new Date(normalized);
+        if (!isNaN(date.getTime())) {
+          const hours = date.getHours().toString().padStart(2, '0');
+          const minutes = date.getMinutes().toString().padStart(2, '0');
+          return `${hours}:${minutes}`;
+        }
+      } catch (e) {
+        // Fall through to regex
+      }
+      
+      // Extract time using regex
+      const match = isoString.match(/T(\d{2}):(\d{2})/);
+      if (match) {
+        return `${match[1]}:${match[2]}`;
+      }
+    }
+    
+    // Fallback: try to extract HH:mm from any string
+    const match = isoString.match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      return `${match[1].padStart(2, '0')}:${match[2]}`;
+    }
+    
+    return '—';
   };
-
-  // Handle date selection with location
-  const handleDateSelection = (date: string, locationIndex: number) => {
-    setSelectedDate(date);
-    setSelectedDoctorLocationIndex(locationIndex);
-    setShowDateModal(false);
+  
+  const getAppointmentTypeIcon = (category?: string) => {
+    const cat = category?.toLowerCase() || '';
+    if (cat === 'virtual') {
+      return <Video size={20} color={Colors.primary} />;
+    } else if (cat === 'phone') {
+      return <Phone size={20} color={Colors.primary} />;
+    }
+    return <MapPin size={20} color={Colors.primary} />;
   };
-
+  
+  const getAppointmentTypeText = (category?: string) => {
+    const cat = category?.toLowerCase() || '';
+    if (cat === 'virtual') {
+      return t.byVideo || 'Video';
+    } else if (cat === 'phone') {
+      return t.byPhone || 'Phone';
+    }
+    return t.inPerson || 'In Person';
+  };
+  
+  const loadMoreDoctors = async () => {
+    if (hasMore && !loadingMoreDoctors) {
+      setLoadingMoreDoctors(true);
+      try {
+        await loadDoctors({ search: searchQuery, location: locationFilter, reset: false });
+      } finally {
+        setLoadingMoreDoctors(false);
+      }
+    }
+  };
+  
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <ArrowLeft size={24} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Marcar Consulta</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          disabled={isBooking}
         >
-          {/* Filters Section */}
-          <View style={styles.filtersContainer}>
-            <Text style={styles.filtersTitle}>
-              <Filter size={16} color={Colors.text} /> Filtros
-            </Text>
-            
-            <View style={styles.filterRow}>
-              {/* Specialty Filter */}
-              <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => setShowSpecialtyModal(true)}
+          <ArrowLeft size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t.addAppointment || 'Book Appointment'}</Text>
+        <View style={{ width: 24 }} />
+      </View>
+      
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Search Section */}
+        <View style={styles.searchSection}>
+            <View style={styles.searchContainer}>
+            <Search size={20} color={Colors.textLight} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search doctors..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              editable={!isBooking}
+            />
+          </View>
+        </View>
+        
+        {/* Doctors Section */}
+        <Text style={styles.sectionTitle}>Select Doctor</Text>
+        {loadingDoctors && doctors.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>{t.loading || 'Loading doctors...'}</Text>
+          </View>
+        ) : doctorsError ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{doctorsError}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => loadDoctors({ reset: true })}>
+              <Text style={styles.retryButtonText}>{t.retry || 'Retry'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : doctors.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No doctors found</Text>
+          </View>
+        ) : (
+          <View style={styles.doctorsContainer}>
+            {doctors.map((doctor) => (
+              <TouchableOpacity
+                key={doctor.id}
+                style={[
+                  styles.doctorCard,
+                  selectedDoctor?.id === doctor.id && styles.doctorCardSelected
+                ]}
+                onPress={() => {
+                  setSelectedDoctor(doctor);
+                  setSelectedAppointmentType(null);
+                  setSelectedDate('');
+                  setSelectedTimeSlot(null);
+                }}
+                disabled={isBooking}
               >
-                <Text style={styles.filterButtonText} numberOfLines={1}>
-                  {getSpecialtyName(selectedSpecialty)}
-                </Text>
-                <ChevronDown size={16} color={Colors.textLight} />
+                {doctor.avatar && (
+                  <View style={styles.avatarContainer}>
+                    <Text style={styles.avatarText}>
+                      {doctor.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.doctorInfo}>
+                  <Text style={styles.doctorName}>{doctor.name}</Text>
+                  {doctor.specialty && (
+                    <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
+                  )}
+                  {doctor.address && (
+                    <View style={styles.doctorLocation}>
+                      <MapPin size={14} color={Colors.textLight} />
+                      <Text style={styles.doctorLocationText}>{doctor.address}</Text>
+                    </View>
+                  )}
+                </View>
+                {selectedDoctor?.id === doctor.id && (
+                  <Check size={20} color={Colors.primary} />
+                )}
               </TouchableOpacity>
-              
-              {/* Insurance Filter */}
-              <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => setShowInsuranceModal(true)}
-              >
-                <Text style={styles.filterButtonText} numberOfLines={1}>
-                  {getInsuranceName(selectedInsurance)}
-                </Text>
-                <ChevronDown size={16} color={Colors.textLight} />
-              </TouchableOpacity>
-            </View>
+            ))}
             
-            <View style={styles.filterRow}>
-              {/* Location Filter */}
-              <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => setShowLocationModal(true)}
+            {hasMore && (
+              <TouchableOpacity
+                style={styles.loadMoreButton}
+                onPress={loadMoreDoctors}
+                disabled={loadingMoreDoctors}
               >
-                <Text style={styles.filterButtonText} numberOfLines={1}>
-                  {getLocationName(selectedLocation)}
-                </Text>
-                <ChevronDown size={16} color={Colors.textLight} />
+                {loadingMoreDoctors ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <Text style={styles.loadMoreText}>Load More</Text>
+                )}
               </TouchableOpacity>
-              
-              {/* Empty space for alignment */}
-              <View style={styles.filterButtonPlaceholder} />
-            </View>
-            
-            {/* Appointment Type Filter */}
-            <View style={styles.typeContainer}>
-              {appointmentTypes.map((type) => (
+            )}
+          </View>
+        )}
+        
+        {/* Appointment Type Selection */}
+        {selectedDoctor && selectedDoctor.appointmentTypes && selectedDoctor.appointmentTypes.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Select Appointment Type</Text>
+            <View style={styles.appointmentTypesContainer}>
+              {selectedDoctor.appointmentTypes.map((type) => (
                 <TouchableOpacity
                   key={type.id}
                   style={[
-                    styles.typeItem,
-                    selectedType === type.id && styles.typeItemSelected
+                    styles.appointmentTypeCard,
+                    selectedAppointmentType?.id === type.id && styles.appointmentTypeCardSelected
                   ]}
-                  onPress={() => setSelectedType(type.id)}
+                  onPress={() => {
+                    setSelectedAppointmentType(type);
+                    setSelectedDate('');
+                    setSelectedTimeSlot(null);
+                  }}
+                  disabled={isBooking}
                 >
-                  {type.icon ? (
-                    <View style={styles.typeIconContainer}>
-                      {getAppointmentTypeIcon(type.id)}
-                    </View>
-                  ) : null}
-                  <Text 
-                    style={[
-                      styles.typeName,
-                      selectedType === type.id && styles.typeNameSelected
-                    ]}
-                  >
-                    {type.name}
-                  </Text>
+                  {getAppointmentTypeIcon(type.category)}
+                  <View style={styles.appointmentTypeInfo}>
+                    <Text style={styles.appointmentTypeName}>{type.name || getAppointmentTypeText(type.category)}</Text>
+                    {type.duration && (
+                      <Text style={styles.appointmentTypeDuration}>{type.duration} min</Text>
+                    )}
+                    {type.price && (
+                      <Text style={styles.appointmentTypePrice}>${type.price}</Text>
+                    )}
+                  </View>
+                  {selectedAppointmentType?.id === type.id && (
+                    <Check size={20} color={Colors.primary} />
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
-
-          {/* Doctors Section */}
-          <Text style={styles.sectionTitle}>Médico</Text>
-          {filteredDoctors.length > 0 ? (
-            <View style={styles.doctorsContainer}>
-              {filteredDoctors.map((doctor) => (
-                <View key={doctor.id} style={styles.doctorItemWrapper}>
+          </>
+        )}
+        
+        {/* Date Selection */}
+        {selectedDoctor && selectedAppointmentType && (
+          <>
+            <Text style={styles.sectionTitle}>Select Date</Text>
+            <DatePicker
+              value={selectedDate}
+              onChange={(dateStr) => {
+                setSelectedDate(dateStr);
+                setSelectedTimeSlot(null);
+              }}
+              placeholder="Select date"
+              label=""
+              disabled={isBooking || loadingAvailability}
+              minimumDate={new Date()}
+            />
+          </>
+        )}
+        
+        {/* Time Selection */}
+        {selectedDate && availableTimes.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Select Time</Text>
+            <View style={styles.timeSlotsContainer}>
+              {availableTimes.map((slot, index) => {
+                // Default to available if not specified
+                const isAvailable = slot.available !== undefined ? slot.available : true;
+                // Compare by formatted time for selection
+                const slotTime = formatTime(slot);
+                const selectedTime = selectedTimeSlot ? formatTime(selectedTimeSlot) : '';
+                const isSelected = selectedTimeSlot === slot || slotTime === selectedTime;
+                
+                return (
                   <TouchableOpacity
+                    key={index}
                     style={[
-                      styles.doctorItem,
-                      selectedDoctor === doctor.id && styles.doctorItemSelected
+                      styles.timeSlotButton,
+                      isSelected && styles.timeSlotButtonSelected,
+                      !isAvailable && styles.timeSlotButtonDisabled
                     ]}
-                    onPress={() => setSelectedDoctor(doctor.id)}
+                    onPress={() => setSelectedTimeSlot(slot)}
+                    disabled={isBooking || !isAvailable}
                   >
-                    <Image 
-                      source={{ uri: doctor.image }} 
-                      style={styles.doctorImage} 
-                    />
-                    <View style={styles.doctorInfo}>
-                      <Text 
-                        style={[
-                          styles.doctorName,
-                          selectedDoctor === doctor.id && styles.doctorNameSelected
-                        ]}
-                      >
-                        {doctor.name}
-                      </Text>
-                      <Text 
-                        style={[
-                          styles.doctorSpecialty,
-                          selectedDoctor === doctor.id && styles.doctorSpecialtySelected
-                        ]}
-                      >
-                        {getSpecialtyName(doctor.specialty)}
-                      </Text>
-                      
-                      {/* Show locations for the doctor */}
-                      <View style={styles.doctorLocationContainer}>
-                        <MapPin size={14} color={selectedDoctor === doctor.id ? Colors.background : Colors.primary} />
-                        <Text 
-                          style={[
-                            styles.doctorLocation,
-                            selectedDoctor === doctor.id && styles.doctorLocationSelected
-                          ]}
-                        >
-                          {doctor.locations.map(loc => loc.city).join(', ')}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                  
-                  {/* Info button to show doctor details */}
-                  <TouchableOpacity 
-                    style={styles.doctorInfoButton}
-                    onPress={() => showDoctorDetails(doctor)}
-                  >
-                    <Info size={18} color={Colors.primary} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                Nenhum médico encontrado com os filtros selecionados
-              </Text>
-            </View>
-          )}
-
-          {/* Location Confirmation for In-Person Appointments */}
-          {selectedDoctor && selectedType === 'presencial' && selectedDoctorLocationIndex !== null && getDoctorLocation() && (
-            <View style={styles.locationConfirmation}>
-              <Text style={styles.locationConfirmationTitle}>Local da Consulta:</Text>
-              <View style={styles.locationConfirmationContent}>
-                <MapPin size={18} color={Colors.primary} />
-                <Text style={styles.locationConfirmationText}>{getDoctorLocation()}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Date and Time Section */}
-          <Text style={styles.sectionTitle}>Data e Hora</Text>
-          <View style={styles.dateTimeContainer}>
-            <TouchableOpacity 
-              style={[
-                styles.dateContainer,
-                !selectedDoctor && styles.disabledInput
-              ]}
-              onPress={() => {
-                if (selectedDoctor && availableDates.length > 0) {
-                  setShowDateModal(true);
-                }
-              }}
-              disabled={!selectedDoctor || availableDates.length === 0}
-            >
-              <Calendar size={20} color={selectedDoctor ? Colors.primary : Colors.textLighter} />
-              <Text 
-                style={[
-                  styles.dateInput,
-                  !selectedDate && styles.placeholderText,
-                  !selectedDoctor && styles.disabledText
-                ]}
-              >
-                {selectedDate ? formatDate(selectedDate) : "Selecionar data"}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[
-                styles.timeContainer,
-                (!selectedDoctor || !selectedDate) && styles.disabledInput
-              ]}
-              onPress={() => {
-                if (selectedDoctor && selectedDate && availableTimeSlots.length > 0) {
-                  setShowTimeModal(true);
-                }
-              }}
-              disabled={!selectedDoctor || !selectedDate || availableTimeSlots.length === 0}
-            >
-              <Clock size={20} color={(selectedDoctor && selectedDate) ? Colors.primary : Colors.textLighter} />
-              <Text 
-                style={[
-                  styles.timeInput,
-                  !selectedTime && styles.placeholderText,
-                  (!selectedDoctor || !selectedDate) && styles.disabledText
-                ]}
-              >
-                {selectedTime || "Selecionar hora"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Notes Section */}
-          <Text style={styles.sectionTitle}>Notas (opcional)</Text>
-          <TextInput
-            style={styles.notesInput}
-            placeholder="Adicione notas ou observações"
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-            numberOfLines={4}
-          />
-
-          {/* Save Button */}
-          <TouchableOpacity 
-            style={[
-              styles.saveButton,
-              (!selectedDoctor || !selectedDate || !selectedTime) && styles.saveButtonDisabled
-            ]}
-            onPress={handleSave}
-            disabled={!selectedDoctor || !selectedDate || !selectedTime}
-          >
-            <Text style={styles.saveButtonText}>Marcar Consulta</Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        {/* Specialty Modal */}
-        <Modal
-          visible={showSpecialtyModal}
-          transparent={true}
-          animationType="slide"
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Especialidade</Text>
-                <TouchableOpacity onPress={() => setShowSpecialtyModal(false)}>
-                  <X size={24} color={Colors.text} />
-                </TouchableOpacity>
-              </View>
-              
-              <FlatList
-                data={specialties}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.modalItem}
-                    onPress={() => {
-                      setSelectedSpecialty(item.id);
-                      setShowSpecialtyModal(false);
-                    }}
-                  >
-                    <Text style={styles.modalItemText}>{item.name}</Text>
-                    {selectedSpecialty === item.id && (
-                      <Check size={20} color={Colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* Insurance Modal */}
-        <Modal
-          visible={showInsuranceModal}
-          transparent={true}
-          animationType="slide"
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Seguro</Text>
-                <TouchableOpacity onPress={() => setShowInsuranceModal(false)}>
-                  <X size={24} color={Colors.text} />
-                </TouchableOpacity>
-              </View>
-              
-              <FlatList
-                data={insuranceProviders}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.modalItem}
-                    onPress={() => {
-                      setSelectedInsurance(item.id);
-                      setShowInsuranceModal(false);
-                    }}
-                  >
-                    <Text style={styles.modalItemText}>{item.name}</Text>
-                    {selectedInsurance === item.id && (
-                      <Check size={20} color={Colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* Location Modal */}
-        <Modal
-          visible={showLocationModal}
-          transparent={true}
-          animationType="slide"
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Localização</Text>
-                <TouchableOpacity onPress={() => setShowLocationModal(false)}>
-                  <X size={24} color={Colors.text} />
-                </TouchableOpacity>
-              </View>
-              
-              <FlatList
-                data={locations}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.modalItem}
-                    onPress={() => {
-                      setSelectedLocation(item.id);
-                      setShowLocationModal(false);
-                    }}
-                  >
-                    <Text style={styles.modalItemText}>{item.name}</Text>
-                    {selectedLocation === item.id && (
-                      <Check size={20} color={Colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* Date Modal */}
-        <Modal
-          visible={showDateModal}
-          transparent={true}
-          animationType="slide"
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Data Disponível</Text>
-                <TouchableOpacity onPress={() => setShowDateModal(false)}>
-                  <X size={24} color={Colors.text} />
-                </TouchableOpacity>
-              </View>
-              
-              <FlatList
-                data={availableDates}
-                keyExtractor={(item, index) => `${item.date}-${index}`}
-                renderItem={({ item }) => {
-                  const doctor = doctors.find(d => d.id === selectedDoctor);
-                  const locationName = doctor ? doctor.locations[item.locationIndex].city : '';
-                  
-                  return (
-                    <TouchableOpacity
-                      style={styles.modalItem}
-                      onPress={() => handleDateSelection(item.date, item.locationIndex)}
-                    >
-                      <View style={styles.modalItemWithLocation}>
-                        <Text style={styles.modalItemText}>{formatDate(item.date)}</Text>
-                        <Text style={styles.modalItemLocation}>{locationName}</Text>
-                      </View>
-                      {selectedDate === item.date && selectedDoctorLocationIndex === item.locationIndex && (
-                        <Check size={20} color={Colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                }}
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* Time Modal */}
-        <Modal
-          visible={showTimeModal}
-          transparent={true}
-          animationType="slide"
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Horário Disponível</Text>
-                <TouchableOpacity onPress={() => setShowTimeModal(false)}>
-                  <X size={24} color={Colors.text} />
-                </TouchableOpacity>
-              </View>
-              
-              <FlatList
-                data={availableTimeSlots}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.modalItem}
-                    onPress={() => {
-                      setSelectedTime(item);
-                      setShowTimeModal(false);
-                    }}
-                  >
-                    <Text style={styles.modalItemText}>{item}</Text>
-                    {selectedTime === item && (
-                      <Check size={20} color={Colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* Doctor Info Modal */}
-        <Modal
-          visible={showDoctorInfoModal}
-          transparent={true}
-          animationType="slide"
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Informações do Médico</Text>
-                <TouchableOpacity onPress={() => setShowDoctorInfoModal(false)}>
-                  <X size={24} color={Colors.text} />
-                </TouchableOpacity>
-              </View>
-              
-              {selectedDoctorInfo && (
-                <View style={styles.doctorDetailContainer}>
-                  <Image 
-                    source={{ uri: selectedDoctorInfo.image }} 
-                    style={styles.doctorDetailImage} 
-                  />
-                  
-                  <Text style={styles.doctorDetailName}>{selectedDoctorInfo.name}</Text>
-                  <Text style={styles.doctorDetailSpecialty}>
-                    {getSpecialtyName(selectedDoctorInfo.specialty)}
-                  </Text>
-                  
-                  {selectedDoctorInfo.bio && (
-                    <View style={styles.doctorBioContainer}>
-                      <Text style={styles.doctorBioTitle}>Sobre</Text>
-                      <Text style={styles.doctorBioText}>{selectedDoctorInfo.bio}</Text>
-                    </View>
-                  )}
-                  
-                  <View style={styles.doctorDetailSection}>
-                    <Text style={styles.doctorDetailSectionTitle}>Formação</Text>
-                    {selectedDoctorInfo.education ? (
-                      selectedDoctorInfo.education.map((edu: string, index: number) => (
-                        <Text key={index} style={styles.doctorDetailText}>• {edu}</Text>
-                      ))
-                    ) : (
-                      <Text style={styles.doctorDetailText}>Informação não disponível</Text>
-                    )}
-                  </View>
-                  
-                  <View style={styles.doctorDetailSection}>
-                    <Text style={styles.doctorDetailSectionTitle}>Idiomas</Text>
-                    {selectedDoctorInfo.languages ? (
-                      <Text style={styles.doctorDetailText}>
-                        {selectedDoctorInfo.languages.join(', ')}
-                      </Text>
-                    ) : (
-                      <Text style={styles.doctorDetailText}>Português</Text>
-                    )}
-                  </View>
-                  
-                  {selectedDoctorInfo.locations && selectedDoctorInfo.locations.length > 0 && (
-                    <View style={styles.doctorDetailSection}>
-                      <Text style={styles.doctorDetailSectionTitle}>Localizações</Text>
-                      {selectedDoctorInfo.locations.map((location: any, index: number) => (
-                        <View key={index} style={styles.doctorLocationDetailContainer}>
-                          <MapPin size={16} color={Colors.primary} />
-                          <Text style={styles.doctorDetailText}>{location.address}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                  
-                  <View style={styles.doctorDetailSection}>
-                    <Text style={styles.doctorDetailSectionTitle}>Seguros Aceitos</Text>
-                    <Text style={styles.doctorDetailText}>
-                      {selectedDoctorInfo.acceptedInsurance.map((ins: string) => 
-                        getInsuranceName(ins)
-                      ).join(', ')}
+                    <Text style={[
+                      styles.timeSlotText,
+                      isSelected && styles.timeSlotTextSelected,
+                      !isAvailable && styles.timeSlotTextDisabled
+                    ]}>
+                      {slotTime}
                     </Text>
-                  </View>
-                  
-                  <View style={styles.doctorDetailSection}>
-                    <Text style={styles.doctorDetailSectionTitle}>Tipos de Consulta</Text>
-                    <View style={styles.consultationTypesContainer}>
-                      {selectedDoctorInfo.consultationTypes.map((type: string) => (
-                        <View key={type} style={styles.consultationType}>
-                          {getAppointmentTypeIcon(type)}
-                          <Text style={styles.consultationTypeName}>
-                            {getAppointmentTypeName(type)}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </View>
-              )}
-              
-              <TouchableOpacity 
-                style={styles.closeModalButton}
-                onPress={() => setShowDoctorInfoModal(false)}
-              >
-                <Text style={styles.closeModalButtonText}>Fechar</Text>
-              </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </View>
-        </Modal>
-      </View>
-    </SafeAreaView>
+          </>
+        )}
+        
+        {/* Phone Number (for phone appointments) */}
+        {selectedAppointmentType?.category?.toLowerCase() === 'phone' && (
+          <>
+            <Text style={styles.sectionTitle}>Phone Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter phone number"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              editable={!isBooking}
+            />
+          </>
+        )}
+        
+        {/* Notes */}
+        <Text style={styles.sectionTitle}>{t.notes || 'Notes'} (Optional)</Text>
+        <TextInput
+          style={[styles.input, styles.notesInput]}
+          placeholder="Add any notes or questions..."
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          numberOfLines={4}
+          editable={!isBooking}
+        />
+        
+        {/* Book Button */}
+        <TouchableOpacity
+          style={[
+            styles.bookButton,
+            (!selectedDoctor || !selectedAppointmentType || !selectedDate || !selectedTimeSlot || isBooking) && styles.bookButtonDisabled
+          ]}
+          onPress={handleBookAppointment}
+          disabled={!selectedDoctor || !selectedAppointmentType || !selectedDate || !selectedTimeSlot || isBooking}
+        >
+          {isBooking ? (
+            <>
+              <ActivityIndicator size="small" color={Colors.background} />
+              <Text style={styles.bookButtonText}>Booking...</Text>
+            </>
+          ) : (
+            <Text style={styles.bookButtonText}>{t.appointmentsBookAppointment || 'Book Appointment'}</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -762,7 +541,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 60,
+    paddingBottom: 16,
     backgroundColor: Colors.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
@@ -782,75 +562,103 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
-  filtersContainer: {
-    backgroundColor: Colors.secondary + '40',
-    borderRadius: 12,
-    padding: 16,
+  searchSection: {
     marginBottom: 24,
   },
-  filtersTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 12,
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.secondary,
     borderRadius: 8,
-    padding: 12,
-    flex: 0.48,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: Colors.border,
+    gap: 8,
   },
-  filterButtonPlaceholder: {
-    flex: 0.48,
-  },
-  filterButtonText: {
-    fontSize: 14,
-    color: Colors.text,
+  searchInput: {
     flex: 1,
-    marginRight: 4,
+    fontSize: 16,
+    color: Colors.text,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: 16,
+    marginBottom: 12,
     marginTop: 24,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textLight,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  errorText: {
+    fontSize: 14,
+    color: Colors.danger,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: Colors.background,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  emptyContainer: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
   },
   doctorsContainer: {
     gap: 12,
   },
-  doctorItemWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  doctorItem: {
+  doctorCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.secondary,
     borderRadius: 12,
-    padding: 12,
-    flex: 1,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 12,
   },
-  doctorItemSelected: {
-    backgroundColor: Colors.primary,
+  doctorCardSelected: {
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    backgroundColor: Colors.primary + '10',
   },
-  doctorImage: {
+  avatarContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginRight: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.background,
   },
   doctorInfo: {
     flex: 1,
@@ -861,311 +669,134 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginBottom: 4,
   },
-  doctorNameSelected: {
-    color: Colors.background,
-  },
   doctorSpecialty: {
     fontSize: 14,
     color: Colors.textLight,
     marginBottom: 4,
   },
-  doctorSpecialtySelected: {
-    color: Colors.background + 'CC',
-  },
-  doctorLocationContainer: {
+  doctorLocation: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  doctorLocation: {
+  doctorLocationText: {
     fontSize: 12,
     color: Colors.textLight,
-    marginLeft: 4,
   },
-  doctorLocationSelected: {
-    color: Colors.background + 'CC',
-  },
-  doctorInfoButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.secondary + '40',
+  loadMoreButton: {
+    padding: 16,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
   },
-  typeContainer: {
+  loadMoreText: {
+    color: Colors.primary,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  appointmentTypesContainer: {
+    gap: 12,
+  },
+  appointmentTypeCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  typeItem: {
-    flex: 1,
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: 8,
-    padding: 10,
-    marginHorizontal: 4,
+    backgroundColor: Colors.secondary,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: Colors.border,
+    gap: 12,
   },
-  typeItemSelected: {
-    backgroundColor: Colors.primary,
+  appointmentTypeCardSelected: {
     borderColor: Colors.primary,
+    borderWidth: 2,
+    backgroundColor: Colors.primary + '10',
   },
-  typeIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  typeName: {
-    fontSize: 12,
-    color: Colors.text,
-    textAlign: 'center',
-  },
-  typeNameSelected: {
-    color: Colors.background,
-  },
-  dateTimeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  dateContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.secondary,
-    borderRadius: 8,
-    padding: 12,
-    marginRight: 8,
-  },
-  timeContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.secondary,
-    borderRadius: 8,
-    padding: 12,
-    marginLeft: 8,
-  },
-  dateInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-    color: Colors.text,
-  },
-  timeInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-    color: Colors.text,
-  },
-  placeholderText: {
-    color: Colors.textLight,
-  },
-  disabledInput: {
-    backgroundColor: Colors.secondary + '60',
-  },
-  disabledText: {
-    color: Colors.textLighter,
-  },
-  notesInput: {
-    backgroundColor: Colors.secondary,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  saveButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 32,
-  },
-  saveButtonDisabled: {
-    backgroundColor: Colors.textLighter,
-  },
-  saveButtonText: {
-    color: Colors.background,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.text,
-  },
-  modalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  modalItemWithLocation: {
+  appointmentTypeInfo: {
     flex: 1,
   },
-  modalItemText: {
+  appointmentTypeName: {
     fontSize: 16,
-    color: Colors.text,
-  },
-  modalItemLocation: {
-    fontSize: 14,
-    color: Colors.textLight,
-    marginTop: 4,
-  },
-  emptyState: {
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.secondary + '40',
-    borderRadius: 12,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: Colors.textLight,
-    textAlign: 'center',
-  },
-  // Doctor Detail Modal
-  doctorDetailContainer: {
-    alignItems: 'center',
-    paddingBottom: 16,
-  },
-  doctorDetailImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 16,
-  },
-  doctorDetailName: {
-    fontSize: 20,
     fontWeight: 'bold',
     color: Colors.text,
     marginBottom: 4,
   },
-  doctorDetailSpecialty: {
-    fontSize: 16,
+  appointmentTypeDuration: {
+    fontSize: 14,
+    color: Colors.textLight,
+  },
+  appointmentTypePrice: {
+    fontSize: 14,
     color: Colors.primary,
-    marginBottom: 16,
-  },
-  doctorBioContainer: {
-    width: '100%',
-    marginBottom: 16,
-    backgroundColor: Colors.secondary + '40',
-    borderRadius: 8,
-    padding: 12,
-  },
-  doctorBioTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  doctorBioText: {
-    fontSize: 14,
-    color: Colors.text,
-    lineHeight: 20,
-  },
-  doctorDetailSection: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  doctorDetailSectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  doctorDetailText: {
-    fontSize: 14,
-    color: Colors.text,
-    lineHeight: 20,
-  },
-  doctorLocationDetailContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  consultationTypesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    fontWeight: '600',
     marginTop: 4,
   },
-  consultationType: {
+  timeSlotsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  timeSlotButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
     backgroundColor: Colors.secondary,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    marginBottom: 8,
+    minWidth: 80,
+    alignItems: 'center',
   },
-  consultationTypeName: {
-    fontSize: 12,
-    color: Colors.text,
-    marginLeft: 6,
-  },
-  closeModalButton: {
+  timeSlotButtonSelected: {
+    borderColor: Colors.primary,
     backgroundColor: Colors.primary,
+  },
+  timeSlotButtonDisabled: {
+    backgroundColor: Colors.border,
+    opacity: 0.5,
+  },
+  timeSlotText: {
+    fontSize: 14,
+    color: Colors.text,
+    fontWeight: '500',
+  },
+  timeSlotTextSelected: {
+    color: Colors.background,
+    fontWeight: 'bold',
+  },
+  timeSlotTextDisabled: {
+    color: Colors.textLight,
+    opacity: 0.5,
+  },
+  input: {
+    backgroundColor: Colors.secondary,
     borderRadius: 8,
     padding: 12,
-    alignItems: 'center',
-    marginTop: 8,
+    fontSize: 16,
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minHeight: 48,
   },
-  closeModalButtonText: {
+  notesInput: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  bookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 32,
+    gap: 8,
+  },
+  bookButtonDisabled: {
+    backgroundColor: Colors.primary,
+    opacity: 0.5,
+  },
+  bookButtonText: {
     color: Colors.background,
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  // Location confirmation
-  locationConfirmation: {
-    backgroundColor: Colors.secondary + '60',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  locationConfirmationTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  locationConfirmationContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationConfirmationText: {
-    fontSize: 14,
-    color: Colors.text,
-    marginLeft: 8,
   },
 });

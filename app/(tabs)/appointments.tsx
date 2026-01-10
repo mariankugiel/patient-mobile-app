@@ -1,100 +1,83 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, SafeAreaView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus, Calendar, Clock, MapPin, Video, Phone, ChevronRight, X } from 'lucide-react-native';
-import Header from '@/components/Header';
-import TabView from '@/components/TabView';
 import Colors from '@/constants/colors';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useAppointments } from '@/hooks/useAppointments';
+import { FrontendAppointment } from '@/lib/api/appointments-api';
+import TabView from '@/components/TabView';
 
-interface Appointment {
-  id: number;
-  doctor: string;
-  doctorImage: string;
-  specialty: string;
-  date: string;
-  time: string;
-  type: 'presencial' | 'video' | 'telefone';
-  location?: string;
-  status: 'upcoming' | 'past' | 'cancelled';
-  notes?: string;
-}
-
-// Mock data for appointments
-const appointmentsData: Appointment[] = [
-  {
-    id: 1,
-    doctor: "Dra. Ana Silva",
-    doctorImage: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=200&auto=format&fit=crop",
-    specialty: "Cardiologia",
-    date: "2023-12-15",
-    time: "14:30",
-    type: "video",
-    status: "upcoming",
-    notes: "Consulta de rotina para verificar a pressão arterial"
-  },
-  {
-    id: 2,
-    doctor: "Dr. João Martins",
-    doctorImage: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=200&auto=format&fit=crop",
-    specialty: "Neurologia",
-    date: "2023-12-20",
-    time: "10:00",
-    type: "presencial",
-    location: "Hospital da Luz, Piso 3, Consultório 305",
-    status: "upcoming",
-    notes: "Trazer exames anteriores"
-  },
-  {
-    id: 3,
-    doctor: "Dra. Maria Costa",
-    doctorImage: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=200&auto=format&fit=crop",
-    specialty: "Dermatologia",
-    date: "2023-11-10",
-    time: "09:15",
-    type: "presencial",
-    location: "Clínica Dermatológica, Rua das Flores 123",
-    status: "past",
-    notes: "Consulta para avaliação de sinais"
-  },
-  {
-    id: 4,
-    doctor: "Dr. Pedro Santos",
-    doctorImage: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop",
-    specialty: "Ortopedia",
-    date: "2023-11-25",
-    time: "16:00",
-    type: "telefone",
-    status: "cancelled",
-    notes: "Consulta para avaliação de dor no joelho"
-  },
-  {
-    id: 5,
-    doctor: "Dra. Sofia Almeida",
-    doctorImage: "https://images.unsplash.com/photo-1614608682850-e0d6ed316d47?q=80&w=200&auto=format&fit=crop",
-    specialty: "Nutrição",
-    date: "2023-10-05",
-    time: "11:30",
-    type: "video",
-    status: "past",
-    notes: "Consulta de acompanhamento nutricional"
-  }
-];
+type TabType = 'upcoming' | 'past' | 'cancelled';
 
 export default function AppointmentsScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('upcoming');
+  const { t, language } = useLanguage();
+  const [activeTab, setActiveTab] = useState<TabType>('upcoming');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  const getAppointmentsByStatus = (status: string) => {
-    return appointmentsData.filter(appointment => appointment.status === status);
+  const { appointments, loading, error, cancelAppointment, refresh } = useAppointments();
+
+  // Filter appointments by status
+  const filteredAppointments = useMemo(() => {
+    const now = new Date();
+    return appointments.filter(apt => {
+      const appointmentDate = new Date(apt.date);
+      
+      if (activeTab === 'upcoming') {
+        return apt.status === 'upcoming' && appointmentDate >= now;
+      } else if (activeTab === 'past') {
+        return apt.status === 'completed' || (apt.status === 'upcoming' && appointmentDate < now);
+      } else if (activeTab === 'cancelled') {
+        return apt.status === 'cancelled';
+      }
+      return false;
+    }).sort((a, b) => {
+      // Sort by date: upcoming = ascending, past = descending
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return activeTab === 'upcoming' ? dateA - dateB : dateB - dateA;
+    });
+  }, [appointments, activeTab]);
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString(
+        language === 'pt' ? 'pt-PT' : language === 'es' ? 'es-ES' : 'en-US',
+        {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        }
+      );
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString(
+        language === 'pt' ? 'pt-PT' : language === 'es' ? 'es-ES' : 'en-US',
+        {
+          hour: '2-digit',
+          minute: '2-digit',
+        }
+      );
+    } catch {
+      return '';
+    }
   };
 
   const getAppointmentTypeIcon = (type: string) => {
     switch (type) {
-      case 'presencial':
+      case 'in-person':
         return <MapPin size={16} color={Colors.primary} />;
-      case 'video':
+      case 'virtual':
         return <Video size={16} color={Colors.primary} />;
-      case 'telefone':
+      case 'phone':
         return <Phone size={16} color={Colors.primary} />;
       default:
         return <MapPin size={16} color={Colors.primary} />;
@@ -103,91 +86,160 @@ export default function AppointmentsScreen() {
 
   const getAppointmentTypeText = (type: string) => {
     switch (type) {
-      case 'presencial':
-        return 'Presencial';
-      case 'video':
-        return 'Videochamada';
-      case 'telefone':
-        return 'Telefone';
+      case 'in-person':
+        return t.inPerson || 'In Person';
+      case 'virtual':
+        return t.byVideo || 'Video';
+      case 'phone':
+        return t.byPhone || 'Phone';
       default:
-        return 'Presencial';
+        return t.inPerson || 'In Person';
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const [year, month, day] = dateString.split('-');
-    return `${day}/${month}/${year}`;
+  const handleCancelAppointment = (appointment: FrontendAppointment) => {
+    Alert.alert(
+      t.appointmentsConfirmCancel || 'Confirm Cancellation',
+      t.appointmentsCancelConfirmDesc || 'Are you sure you want to cancel this appointment?',
+      [
+        {
+          text: t.cancel || 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: t.cancelAppointment || 'Cancel Appointment',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setCancellingId(appointment.id);
+              await cancelAppointment(appointment.id);
+              Alert.alert(
+                t.success || 'Success',
+                t.appointmentsCancelledSuccess || 'Appointment cancelled successfully'
+              );
+            } catch (err: any) {
+              Alert.alert(
+                t.validationError || 'Error',
+                err.message || 'Failed to cancel appointment'
+              );
+            } finally {
+              setCancellingId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const renderAppointmentItem = (appointment: Appointment) => {
-    const formattedDate = formatDate(appointment.date);
+  const handleJoinCall = async (appointment: FrontendAppointment) => {
+    if (appointment.virtual_meeting_url) {
+      try {
+        const supported = await Linking.canOpenURL(appointment.virtual_meeting_url);
+        if (supported) {
+          await Linking.openURL(appointment.virtual_meeting_url);
+        } else {
+          Alert.alert(t.validationError || 'Error', 'Cannot open the video call link');
+        }
+      } catch (err) {
+        Alert.alert(t.validationError || 'Error', 'Failed to open video call');
+      }
+    }
+  };
+
+  const renderAppointmentCard = (appointment: FrontendAppointment) => {
+    const isCancelling = cancellingId === appointment.id;
     
     return (
       <View key={appointment.id} style={styles.appointmentCard}>
         <View style={styles.appointmentHeader}>
-          <Image 
-            source={{ uri: appointment.doctorImage }} 
-            style={styles.doctorImage} 
-          />
           <View style={styles.appointmentInfo}>
             <Text style={styles.doctorName}>{appointment.doctor}</Text>
-            <Text style={styles.specialty}>{appointment.specialty}</Text>
+            {appointment.specialty && (
+              <Text style={styles.specialty}>{appointment.specialty}</Text>
+            )}
           </View>
           {appointment.status === 'cancelled' && (
             <View style={styles.cancelledBadge}>
-              <Text style={styles.cancelledText}>Cancelada</Text>
+              <Text style={styles.cancelledText}>
+                {t.appointmentsCancelled || 'Cancelled'}
+              </Text>
             </View>
           )}
         </View>
-        
+
         <View style={styles.appointmentDetails}>
           <View style={styles.detailItem}>
             <Calendar size={16} color={Colors.primary} />
-            <Text style={styles.detailText}>{formattedDate}</Text>
+            <Text style={styles.detailText}>
+              {t.appointmentsDate || 'Date'}: {formatDate(appointment.date)}
+            </Text>
           </View>
-          
+
           <View style={styles.detailItem}>
             <Clock size={16} color={Colors.primary} />
-            <Text style={styles.detailText}>{appointment.time}</Text>
+            <Text style={styles.detailText}>
+              {t.appointmentsTime || 'Time'}: {formatTime(appointment.date)}
+            </Text>
           </View>
-          
+
           <View style={styles.detailItem}>
             {getAppointmentTypeIcon(appointment.type)}
-            <Text style={styles.detailText}>{getAppointmentTypeText(appointment.type)}</Text>
+            <Text style={styles.detailText}>
+              {t.appointmentsType || 'Type'}: {getAppointmentTypeText(appointment.type)}
+            </Text>
           </View>
-          
+
           {appointment.location && (
             <View style={styles.detailItem}>
               <MapPin size={16} color={Colors.primary} />
               <Text style={styles.detailText}>{appointment.location}</Text>
             </View>
           )}
-          
+
           {appointment.notes && (
-            <Text style={styles.notes}>{appointment.notes}</Text>
+            <Text style={styles.notes}>
+              {t.appointmentsNotes || 'Notes'}: {appointment.notes}
+            </Text>
           )}
         </View>
-        
+
         {appointment.status === 'upcoming' && (
           <View style={styles.appointmentActions}>
-            {appointment.type === 'video' && (
-              <TouchableOpacity style={styles.joinButton}>
+            {appointment.type === 'virtual' && appointment.virtual_meeting_url && (
+              <TouchableOpacity
+                style={styles.joinButton}
+                onPress={() => handleJoinCall(appointment)}
+                disabled={isCancelling}
+              >
                 <Video size={16} color={Colors.background} />
-                <Text style={styles.joinButtonText}>Entrar na Consulta</Text>
+                <Text style={styles.joinButtonText}>
+                  {t.appointmentsJoinCall || 'Join Call'}
+                </Text>
               </TouchableOpacity>
             )}
-            
-            <TouchableOpacity style={styles.detailsButton}>
-              <Text style={styles.detailsButtonText}>Ver Detalhes</Text>
-              <ChevronRight size={16} color={Colors.primary} />
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => handleCancelAppointment(appointment)}
+              disabled={isCancelling}
+            >
+              {isCancelling ? (
+                <ActivityIndicator size="small" color={Colors.danger} />
+              ) : (
+                <Text style={styles.cancelButtonText}>
+                  {t.cancelAppointment || 'Cancel'}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
-        
-        {appointment.status === 'past' && (
+
+        {appointment.status === 'completed' && (
           <View style={styles.appointmentActions}>
             <TouchableOpacity style={styles.detailsButton}>
-              <Text style={styles.detailsButtonText}>Ver Relatório</Text>
+              <Text style={styles.detailsButtonText}>
+                {t.appointmentsViewReport || 'View Report'}
+              </Text>
               <ChevronRight size={16} color={Colors.primary} />
             </TouchableOpacity>
           </View>
@@ -196,92 +248,113 @@ export default function AppointmentsScreen() {
     );
   };
 
-  const handleAddAppointment = () => {
-    router.push('/add-appointment');
-  };
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>
+            {t.appointmentsLoading || 'Loading appointments...'}
+          </Text>
+        </View>
+      );
+    }
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Header />
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>Consultas</Text>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={handleAddAppointment}
-          >
-            <Plus size={20} color={Colors.background} />
-            <Text style={styles.addButtonText}>Marcar</Text>
+    if (error) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={refresh}>
+            <Text style={styles.retryButtonText}>{t.retry || 'Retry'}</Text>
           </TouchableOpacity>
         </View>
-        
-        <TabView
-          tabs={[
-            { key: 'upcoming', title: 'Próximas', icon: Calendar },
-            { key: 'past', title: 'Passadas', icon: Clock },
-            { key: 'cancelled', title: 'Canceladas', icon: X }
-          ]}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-        
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+      );
+    }
+
+    if (filteredAppointments.length === 0) {
+      let emptyText = '';
+      if (activeTab === 'upcoming') {
+        emptyText = t.appointmentsNoUpcoming || 'No upcoming appointments';
+      } else if (activeTab === 'past') {
+        emptyText = t.appointmentsNoPast || 'No past appointments';
+      } else {
+        emptyText = t.appointmentsNoCancelled || 'No cancelled appointments';
+      }
+
+      return (
+        <View style={styles.centerContainer}>
+          <Calendar size={64} color={Colors.textLight} />
+          <Text style={styles.emptyStateText}>{emptyText}</Text>
           {activeTab === 'upcoming' && (
-            <>
-              {getAppointmentsByStatus('upcoming').length > 0 ? (
-                getAppointmentsByStatus('upcoming').map(renderAppointmentItem)
-              ) : (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateText}>Não tem consultas agendadas</Text>
-                  <TouchableOpacity 
-                    style={styles.emptyStateButton}
-                    onPress={handleAddAppointment}
-                  >
-                    <Text style={styles.emptyStateButtonText}>Marcar Consulta</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </>
+            <TouchableOpacity
+              style={styles.emptyStateButton}
+              onPress={() => router.push('/add-appointment')}
+            >
+              <Text style={styles.emptyStateButtonText}>
+                {t.appointmentsBookAppointment || 'Book Appointment'}
+              </Text>
+            </TouchableOpacity>
           )}
-          
-          {activeTab === 'past' && (
-            <>
-              {getAppointmentsByStatus('past').length > 0 ? (
-                getAppointmentsByStatus('past').map(renderAppointmentItem)
-              ) : (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateText}>Não tem consultas passadas</Text>
-                </View>
-              )}
-            </>
-          )}
-          
-          {activeTab === 'cancelled' && (
-            <>
-              {getAppointmentsByStatus('cancelled').length > 0 ? (
-                getAppointmentsByStatus('cancelled').map(renderAppointmentItem)
-              ) : (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateText}>Não tem consultas canceladas</Text>
-                </View>
-              )}
-            </>
-          )}
-        </ScrollView>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {filteredAppointments.map(renderAppointmentCard)}
+      </ScrollView>
+    );
+  };
+
+  const tabs = [
+    {
+      key: 'upcoming',
+      title: t.appointmentsUpcoming || t.upcoming || 'Upcoming',
+      icon: Calendar,
+    },
+    {
+      key: 'past',
+      title: t.appointmentsPast || t.past || 'Past',
+      icon: Clock,
+    },
+    {
+      key: 'cancelled',
+      title: t.appointmentsCancelled || t.cancelled || 'Cancelled',
+      icon: X,
+    },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>{t.appointments || 'Appointments'}</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => router.push('/add-appointment')}
+        >
+          <Plus size={20} color={Colors.background} />
+          <Text style={styles.addButtonText}>
+            {t.appointmentsBookAppointment || 'Book'}
+          </Text>
+        </TouchableOpacity>
       </View>
-    </SafeAreaView>
+
+      <TabView
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(tab) => setActiveTab(tab as TabType)}
+      />
+
+      {renderContent()}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -291,8 +364,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 24,
+    paddingTop: 60,
+    paddingBottom: 16,
+    backgroundColor: Colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   title: {
     fontSize: 24,
@@ -306,40 +382,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    gap: 4,
   },
   addButtonText: {
     color: Colors.background,
     fontWeight: 'bold',
-    marginLeft: 4,
+    fontSize: 14,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 24,
   },
   appointmentCard: {
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.secondary,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   appointmentHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 12,
-  },
-  doctorImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
   },
   appointmentInfo: {
     flex: 1,
@@ -375,8 +445,9 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    color: Colors.textLight,
+    color: Colors.text,
     marginLeft: 8,
+    flex: 1,
   },
   notes: {
     fontSize: 14,
@@ -388,6 +459,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
   joinButton: {
     flexDirection: 'row',
@@ -396,33 +468,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    gap: 4,
   },
   joinButtonText: {
     color: Colors.background,
     fontWeight: 'bold',
     fontSize: 14,
-    marginLeft: 4,
+  },
+  cancelButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.danger,
+  },
+  cancelButtonText: {
+    color: Colors.danger,
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   detailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
+    gap: 4,
   },
   detailsButtonText: {
     color: Colors.primary,
     fontWeight: 'bold',
     fontSize: 14,
   },
-  emptyState: {
+  centerContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.textLight,
+  },
+  errorText: {
+    fontSize: 16,
+    color: Colors.danger,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: Colors.background,
+    fontWeight: '600',
+    fontSize: 16,
   },
   emptyStateText: {
     fontSize: 16,
     color: Colors.textLight,
     textAlign: 'center',
+    marginTop: 16,
     marginBottom: 16,
   },
   emptyStateButton: {
@@ -434,5 +543,6 @@ const styles = StyleSheet.create({
   emptyStateButtonText: {
     color: Colors.background,
     fontWeight: 'bold',
+    fontSize: 16,
   },
 });

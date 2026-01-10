@@ -554,6 +554,25 @@ export interface Translations {
   noAppointments: string;
   cancelAppointment: string;
   rescheduleAppointment: string;
+  appointmentsUpcoming: string;
+  appointmentsPast: string;
+  appointmentsCancelled: string;
+  appointmentsNoUpcoming: string;
+  appointmentsNoPast: string;
+  appointmentsNoCancelled: string;
+  appointmentsLoading: string;
+  appointmentsJoinCall: string;
+  appointmentsViewDetails: string;
+  appointmentsViewReport: string;
+  appointmentsBookAppointment: string;
+  appointmentsDate: string;
+  appointmentsTime: string;
+  appointmentsType: string;
+  appointmentsLocation: string;
+  appointmentsNotes: string;
+  appointmentsConfirmCancel: string;
+  appointmentsCancelConfirmDesc: string;
+  appointmentsCancelledSuccess: string;
   
   // Metabolic Age
   good: string;
@@ -616,12 +635,66 @@ export interface Translations {
   in: string;
   
   // Medication
+  medications: string;
   medicationName: string;
+  addMedication: string;
+  medicationsAddNewMedication: string;
+  medicationsEnterDetails: string;
+  medicationsName: string;
+  medicationsNamePlaceholder: string;
+  medicationsDosage: string;
+  medicationsDosagePlaceholder: string;
+  medicationsFrequency: string;
+  medicationsFrequencyPlaceholder: string;
+  medicationsPurpose: string;
+  medicationsPurposePlaceholder: string;
+  medicationsPrescribedBy: string;
+  medicationsPrescribedByPlaceholder: string;
+  medicationsSelf: string;
+  medicationsStartDate: string;
+  medicationsEndDate: string;
+  medicationsInstructions: string;
+  medicationsInstructionsPlaceholder: string;
+  medicationsPrescription: string;
+  medicationsPrescriptionInfo: string;
+  medicationsRxNumber: string;
+  medicationsRxNumberPlaceholder: string;
+  medicationsPharmacy: string;
+  medicationsPharmacyPlaceholder: string;
+  medicationsQuantity: string;
+  medicationsQuantityPlaceholder: string;
+  medicationsRefillsRemaining: string;
+  medicationsRefillsRemainingPlaceholder: string;
+  medicationsLastFilled: string;
+  medicationsLastRefillDate: string;
+  medicationsCurrentMedications: string;
+  medicationsPreviousMedications: string;
+  medicationsNoCurrentMedications: string;
+  medicationsNoCurrentMedicationsDesc: string;
+  medicationsNoPreviousMedications: string;
+  medicationsNoPreviousMedicationsDesc: string;
+  medicationsLoading: string;
+  medicationsEndMedication: string;
+  medicationsEndMedicationDescription: string;
+  medicationsEndNow: string;
+  medicationsEnding: string;
+  medicationsReasonEnded: string;
+  medicationsEndDateMustBeAfterStartDate: string;
+  medicationsPleaseFillInName: string;
+  medicationsPleaseFillInDosage: string;
+  medicationsPleaseFillInFrequency: string;
+  medicationsPleaseFillInStartDate: string;
+  medicationsPleaseFillInEndDate: string;
+  medicationsSaving: string;
+  medicationAddedSuccessfully: string;
+  medicationAddFailed: string;
+  deleteMedicationConfirm: string;
+  deleteMedicationConfirmDesc: string;
+  retry: string;
   dosage: string;
   frequency: string;
   time: string;
   instructions: string;
-  addMedication: string;
   takeMedication: string;
   
   // Common time related
@@ -1117,6 +1190,25 @@ export const translations: Record<Language, Translations> = {
     noAppointments: 'Não há consultas',
     cancelAppointment: 'Cancelar Consulta',
     rescheduleAppointment: 'Reagendar',
+    appointmentsUpcoming: 'Próximas',
+    appointmentsPast: 'Passadas',
+    appointmentsCancelled: 'Canceladas',
+    appointmentsNoUpcoming: 'Não tem consultas agendadas',
+    appointmentsNoPast: 'Não tem consultas passadas',
+    appointmentsNoCancelled: 'Não tem consultas canceladas',
+    appointmentsLoading: 'A carregar consultas...',
+    appointmentsJoinCall: 'Entrar na Consulta',
+    appointmentsViewDetails: 'Ver Detalhes',
+    appointmentsViewReport: 'Ver Relatório',
+    appointmentsBookAppointment: 'Marcar Consulta',
+    appointmentsDate: 'Data',
+    appointmentsTime: 'Hora',
+    appointmentsType: 'Tipo',
+    appointmentsLocation: 'Localização',
+    appointmentsNotes: 'Notas',
+    appointmentsConfirmCancel: 'Confirmar Cancelamento',
+    appointmentsCancelConfirmDesc: 'Tem a certeza que deseja cancelar esta consulta?',
+    appointmentsCancelledSuccess: 'Consulta cancelada com sucesso',
     
     // Metabolic Age
     good: 'BOM',
@@ -1179,12 +1271,66 @@ export const translations: Record<Language, Translations> = {
     in: 'em',
     
     // Medication
+    medications: 'Medicações',
     medicationName: 'Nome do Medicamento',
+    addMedication: 'Adicionar Medicamento',
+    medicationsAddNewMedication: 'Adicionar Novo Medicamento',
+    medicationsEnterDetails: 'Introduza os detalhes do seu novo medicamento.',
+    medicationsName: 'Nome',
+    medicationsNamePlaceholder: 'Introduza o nome do medicamento',
+    medicationsDosage: 'Dosagem',
+    medicationsDosagePlaceholder: 'Introduza a dosagem (ex: 10mg)',
+    medicationsFrequency: 'Frequência',
+    medicationsFrequencyPlaceholder: 'Introduza a frequência (ex: Uma vez por dia)',
+    medicationsPurpose: 'Finalidade',
+    medicationsPurposePlaceholder: 'Para que serve este medicamento?',
+    medicationsPrescribedBy: 'Prescrito Por',
+    medicationsPrescribedByPlaceholder: 'Nome do médico',
+    medicationsSelf: 'Auto',
+    medicationsStartDate: 'Data de Início',
+    medicationsEndDate: 'Data de Fim',
+    medicationsInstructions: 'Instruções',
+    medicationsInstructionsPlaceholder: 'Introduza as instruções',
+    medicationsPrescription: 'Prescrição',
+    medicationsPrescriptionInfo: 'Informações da Prescrição',
+    medicationsRxNumber: 'Número Rx',
+    medicationsRxNumberPlaceholder: 'Número da prescrição',
+    medicationsPharmacy: 'Farmácia',
+    medicationsPharmacyPlaceholder: 'Nome da farmácia',
+    medicationsQuantity: 'Quantidade',
+    medicationsQuantityPlaceholder: 'Quantidade original',
+    medicationsRefillsRemaining: 'Refeições Restantes',
+    medicationsRefillsRemainingPlaceholder: 'Número de refeições',
+    medicationsLastFilled: 'Última Compra',
+    medicationsLastRefillDate: 'Data da Última Compra',
+    medicationsCurrentMedications: 'Medicações Atuais',
+    medicationsPreviousMedications: 'Medicações Anteriores',
+    medicationsNoCurrentMedications: 'Sem Medicações Atuais',
+    medicationsNoCurrentMedicationsDesc: 'Não tem medicações ativas. Clique no botão acima para adicionar a sua primeira medicação.',
+    medicationsNoPreviousMedications: 'Sem Medicações Anteriores',
+    medicationsNoPreviousMedicationsDesc: 'Não tem medicações anteriores. As medicações que terminar aparecerão aqui.',
+    medicationsLoading: 'A carregar medicações...',
+    medicationsEndMedication: 'Terminar Medicamento',
+    medicationsEndMedicationDescription: 'Tem a certeza que deseja terminar esta medicação? Pode opcionalmente fornecer um motivo.',
+    medicationsEndNow: 'Terminar Agora',
+    medicationsEnding: 'A terminar...',
+    medicationsReasonEnded: 'Motivo do Término',
+    medicationsEndDateMustBeAfterStartDate: 'A data de fim deve ser posterior à data de início.',
+    medicationsPleaseFillInName: 'Por favor, preencha o nome do medicamento.',
+    medicationsPleaseFillInDosage: 'Por favor, preencha a dosagem.',
+    medicationsPleaseFillInFrequency: 'Por favor, preencha a frequência.',
+    medicationsPleaseFillInStartDate: 'Por favor, preencha a data de início.',
+    medicationsPleaseFillInEndDate: 'Por favor, preencha a data de fim.',
+    medicationsSaving: 'A guardar...',
+    medicationAddedSuccessfully: 'Medicação adicionada com sucesso!',
+    medicationAddFailed: 'Falha ao adicionar medicação. Por favor, tente novamente.',
+    deleteMedicationConfirm: 'Tem a certeza que deseja eliminar',
+    deleteMedicationConfirmDesc: 'Esta ação não pode ser desfeita.',
+    retry: 'Tentar Novamente',
     dosage: 'Dosagem',
     frequency: 'Frequência',
     time: 'Hora',
     instructions: 'Instruções',
-    addMedication: 'Adicionar Medicamento',
     takeMedication: 'Tomar Medicamento',
     
     // Common time related
@@ -1746,6 +1892,25 @@ export const translations: Record<Language, Translations> = {
     noAppointments: 'No hay citas',
     cancelAppointment: 'Cancelar Cita',
     rescheduleAppointment: 'Reagendar',
+    appointmentsUpcoming: 'Próximas',
+    appointmentsPast: 'Pasadas',
+    appointmentsCancelled: 'Canceladas',
+    appointmentsNoUpcoming: 'No hay citas próximas',
+    appointmentsNoPast: 'No hay citas pasadas',
+    appointmentsNoCancelled: 'No hay citas canceladas',
+    appointmentsLoading: 'Cargando citas...',
+    appointmentsJoinCall: 'Unirse a la Consulta',
+    appointmentsViewDetails: 'Ver Detalles',
+    appointmentsViewReport: 'Ver Informe',
+    appointmentsBookAppointment: 'Agendar Cita',
+    appointmentsDate: 'Fecha',
+    appointmentsTime: 'Hora',
+    appointmentsType: 'Tipo',
+    appointmentsLocation: 'Ubicación',
+    appointmentsNotes: 'Notas',
+    appointmentsConfirmCancel: 'Confirmar Cancelación',
+    appointmentsCancelConfirmDesc: '¿Está seguro de que desea cancelar esta cita?',
+    appointmentsCancelledSuccess: 'Cita cancelada con éxito',
     
     // Metabolic Age
     good: 'BIEN',
@@ -1808,12 +1973,66 @@ export const translations: Record<Language, Translations> = {
     in: 'en',
     
     // Medication
+    medications: 'Medicamentos',
     medicationName: 'Nombre del Medicamento',
+    addMedication: 'Añadir Medicamento',
+    medicationsAddNewMedication: 'Añadir Nuevo Medicamento',
+    medicationsEnterDetails: 'Ingrese los detalles de su nuevo medicamento.',
+    medicationsName: 'Nombre',
+    medicationsNamePlaceholder: 'Ingrese el nombre del medicamento',
+    medicationsDosage: 'Dosificación',
+    medicationsDosagePlaceholder: 'Ingrese la dosificación (ej: 10mg)',
+    medicationsFrequency: 'Frecuencia',
+    medicationsFrequencyPlaceholder: 'Ingrese la frecuencia (ej: Una vez al día)',
+    medicationsPurpose: 'Propósito',
+    medicationsPurposePlaceholder: '¿Para qué es este medicamento?',
+    medicationsPrescribedBy: 'Prescrito Por',
+    medicationsPrescribedByPlaceholder: 'Nombre del médico',
+    medicationsSelf: 'Auto',
+    medicationsStartDate: 'Fecha de Inicio',
+    medicationsEndDate: 'Fecha de Fin',
+    medicationsInstructions: 'Instrucciones',
+    medicationsInstructionsPlaceholder: 'Ingrese las instrucciones',
+    medicationsPrescription: 'Prescripción',
+    medicationsPrescriptionInfo: 'Información de la Prescripción',
+    medicationsRxNumber: 'Número Rx',
+    medicationsRxNumberPlaceholder: 'Número de prescripción',
+    medicationsPharmacy: 'Farmacia',
+    medicationsPharmacyPlaceholder: 'Nombre de la farmacia',
+    medicationsQuantity: 'Cantidad',
+    medicationsQuantityPlaceholder: 'Cantidad original',
+    medicationsRefillsRemaining: 'Recargas Restantes',
+    medicationsRefillsRemainingPlaceholder: 'Número de recargas',
+    medicationsLastFilled: 'Última Compra',
+    medicationsLastRefillDate: 'Fecha de Última Compra',
+    medicationsCurrentMedications: 'Medicamentos Actuales',
+    medicationsPreviousMedications: 'Medicamentos Anteriores',
+    medicationsNoCurrentMedications: 'Sin Medicamentos Actuales',
+    medicationsNoCurrentMedicationsDesc: 'No tiene medicamentos activos. Haga clic en el botón de arriba para agregar su primer medicamento.',
+    medicationsNoPreviousMedications: 'Sin Medicamentos Anteriores',
+    medicationsNoPreviousMedicationsDesc: 'No tiene medicamentos anteriores. Los medicamentos que termine aparecerán aquí.',
+    medicationsLoading: 'Cargando medicamentos...',
+    medicationsEndMedication: 'Terminar Medicamento',
+    medicationsEndMedicationDescription: '¿Está seguro de que desea terminar este medicamento? Opcionalmente puede proporcionar un motivo.',
+    medicationsEndNow: 'Terminar Ahora',
+    medicationsEnding: 'Terminando...',
+    medicationsReasonEnded: 'Motivo del Término',
+    medicationsEndDateMustBeAfterStartDate: 'La fecha de fin debe ser posterior a la fecha de inicio.',
+    medicationsPleaseFillInName: 'Por favor, complete el nombre del medicamento.',
+    medicationsPleaseFillInDosage: 'Por favor, complete la dosificación.',
+    medicationsPleaseFillInFrequency: 'Por favor, complete la frecuencia.',
+    medicationsPleaseFillInStartDate: 'Por favor, complete la fecha de inicio.',
+    medicationsPleaseFillInEndDate: 'Por favor, complete la fecha de fin.',
+    medicationsSaving: 'Guardando...',
+    medicationAddedSuccessfully: '¡Medicamento agregado exitosamente!',
+    medicationAddFailed: 'Error al agregar medicamento. Por favor, intente nuevamente.',
+    deleteMedicationConfirm: '¿Está seguro de que desea eliminar',
+    deleteMedicationConfirmDesc: 'Esta acción no se puede deshacer.',
+    retry: 'Reintentar',
     dosage: 'Dosificación',
     frequency: 'Frecuencia',
     time: 'Hora',
     instructions: 'Instrucciones',
-    addMedication: 'Añadir Medicamento',
     takeMedication: 'Tomar Medicamento',
     
     // Common time related
@@ -2376,6 +2595,25 @@ export const translations: Record<Language, Translations> = {
     noAppointments: 'No appointments',
     cancelAppointment: 'Cancel Appointment',
     rescheduleAppointment: 'Reschedule',
+    appointmentsUpcoming: 'Upcoming',
+    appointmentsPast: 'Past',
+    appointmentsCancelled: 'Cancelled',
+    appointmentsNoUpcoming: 'No upcoming appointments',
+    appointmentsNoPast: 'No past appointments',
+    appointmentsNoCancelled: 'No cancelled appointments',
+    appointmentsLoading: 'Loading appointments...',
+    appointmentsJoinCall: 'Join Call',
+    appointmentsViewDetails: 'View Details',
+    appointmentsViewReport: 'View Report',
+    appointmentsBookAppointment: 'Book Appointment',
+    appointmentsDate: 'Date',
+    appointmentsTime: 'Time',
+    appointmentsType: 'Type',
+    appointmentsLocation: 'Location',
+    appointmentsNotes: 'Notes',
+    appointmentsConfirmCancel: 'Confirm Cancellation',
+    appointmentsCancelConfirmDesc: 'Are you sure you want to cancel this appointment?',
+    appointmentsCancelledSuccess: 'Appointment cancelled successfully',
     
     // Metabolic Age
     good: 'GOOD',
@@ -2438,12 +2676,66 @@ export const translations: Record<Language, Translations> = {
     in: 'in',
     
     // Medication
+    medications: 'Medications',
     medicationName: 'Medication Name',
+    addMedication: 'Add Medication',
+    medicationsAddNewMedication: 'Add New Medication',
+    medicationsEnterDetails: 'Enter the details of your new medication.',
+    medicationsName: 'Name',
+    medicationsNamePlaceholder: 'Enter medication name',
+    medicationsDosage: 'Dosage',
+    medicationsDosagePlaceholder: 'Enter dosage (e.g., 10mg)',
+    medicationsFrequency: 'Frequency',
+    medicationsFrequencyPlaceholder: 'Enter frequency (e.g., Once daily)',
+    medicationsPurpose: 'Purpose',
+    medicationsPurposePlaceholder: 'What is this medication for?',
+    medicationsPrescribedBy: 'Prescribed By',
+    medicationsPrescribedByPlaceholder: "Doctor's name",
+    medicationsSelf: 'Self',
+    medicationsStartDate: 'Start Date',
+    medicationsEndDate: 'End Date',
+    medicationsInstructions: 'Instructions',
+    medicationsInstructionsPlaceholder: 'Enter instructions',
+    medicationsPrescription: 'Prescription',
+    medicationsPrescriptionInfo: 'Prescription Information',
+    medicationsRxNumber: 'Rx Number',
+    medicationsRxNumberPlaceholder: 'Prescription number',
+    medicationsPharmacy: 'Pharmacy',
+    medicationsPharmacyPlaceholder: 'Pharmacy name',
+    medicationsQuantity: 'Quantity',
+    medicationsQuantityPlaceholder: 'Original quantity',
+    medicationsRefillsRemaining: 'Refills Remaining',
+    medicationsRefillsRemainingPlaceholder: 'Number of refills',
+    medicationsLastFilled: 'Last Filled',
+    medicationsLastRefillDate: 'Last Refill Date',
+    medicationsCurrentMedications: 'Current Medications',
+    medicationsPreviousMedications: 'Previous Medications',
+    medicationsNoCurrentMedications: 'No Current Medications',
+    medicationsNoCurrentMedicationsDesc: "You don't have any active medications. Click the button above to add your first medication.",
+    medicationsNoPreviousMedications: 'No Previous Medications',
+    medicationsNoPreviousMedicationsDesc: "You don't have any previous medications. Medications you end will appear here.",
+    medicationsLoading: 'Loading medications...',
+    medicationsEndMedication: 'End Medication',
+    medicationsEndMedicationDescription: 'Are you sure you want to end this medication? You can optionally provide a reason.',
+    medicationsEndNow: 'End Now',
+    medicationsEnding: 'Ending...',
+    medicationsReasonEnded: 'Reason Ended',
+    medicationsEndDateMustBeAfterStartDate: 'End date must be after start date.',
+    medicationsPleaseFillInName: 'Please fill in the medication name.',
+    medicationsPleaseFillInDosage: 'Please fill in the dosage.',
+    medicationsPleaseFillInFrequency: 'Please fill in the frequency.',
+    medicationsPleaseFillInStartDate: 'Please fill in the start date.',
+    medicationsPleaseFillInEndDate: 'Please fill in the end date.',
+    medicationsSaving: 'Saving...',
+    medicationAddedSuccessfully: 'Medication added successfully!',
+    medicationAddFailed: 'Failed to add medication. Please try again.',
+    deleteMedicationConfirm: 'Are you sure you want to delete',
+    deleteMedicationConfirmDesc: 'This action cannot be undone.',
+    retry: 'Retry',
     dosage: 'Dosage',
     frequency: 'Frequency',
     time: 'Time',
     instructions: 'Instructions',
-    addMedication: 'Add Medication',
     takeMedication: 'Take Medication',
     
     // Common time related
