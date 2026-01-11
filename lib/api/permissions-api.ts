@@ -35,6 +35,18 @@ export class PermissionsApiService {
   }
 
   /**
+   * Update user shared access (permissions)
+   */
+  static async updateSharedAccess(sharedAccessData: Partial<UserSharedAccess>): Promise<UserSharedAccess> {
+    try {
+      const response = await apiClient.put('/auth/shared-access', sharedAccessData);
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to update shared access data');
+    }
+  }
+
+  /**
    * Get user access logs
    */
   static async getAccessLogs(): Promise<{ logs?: AccessLogEntry[] }> {

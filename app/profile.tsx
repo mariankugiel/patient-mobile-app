@@ -11,7 +11,6 @@ import {
   Type, Eye, Watch, Zap, Mountain, Stethoscope, Compass, CircleDot, Thermometer
 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { dataAccessPermissions as initialDataAccessPermissions } from '@/constants/patient';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -24,8 +23,10 @@ import ChangePasswordModal from '@/components/Profile/ChangePasswordModal';
 import EditEmergencyModal from '@/components/Profile/EditEmergencyModal';
 import AddEmergencyContactModal from '@/components/Profile/AddEmergencyContactModal';
 import TwoFactorAuthModal from '@/components/Profile/TwoFactorAuthModal';
+import AddAccessModal, { AddAccessInput } from '@/components/Profile/AddAccessModal';
 import { getInitials, getAvatarColor } from '@/lib/utils/avatar';
 import { getHealthServiceIconWithBackground } from '@/lib/utils/health-service-icons';
+import type { UserSharedAccess } from '@/lib/api/types';
 
 type Integration = {
   id: string;
@@ -78,7 +79,7 @@ export default function ProfileScreen() {
   const { profile, isLoading: isLoadingProfile, updateProfile, updateProfileAsync, isUpdating: isUpdatingProfile, refetch: refetchProfile } = useProfile();
   const { emergency, isLoading: isLoadingEmergency, updateEmergency, isUpdating: isUpdatingEmergency } = useEmergency();
   const { notifications, isLoading: isLoadingNotifications, updateNotifications, isUpdating: isUpdatingNotifications } = useNotifications();
-  const { sharedAccess, accessLogs, isLoading: isLoadingPermissions } = usePermissions();
+  const { sharedAccess, accessLogs, isLoading: isLoadingPermissions, updateSharedAccess, isUpdatingSharedAccess } = usePermissions();
   const { logout } = useAuthStore();
   
   // Use profile from hook, fallback to auth store profile
@@ -109,37 +110,39 @@ export default function ProfileScreen() {
   }, [isAuthenticated, profile, isLoadingProfile, authStoreProfile, refetchProfile]);
   
   // Map backend permissions to UI format
-  const [currentPermissions, setCurrentPermissions] = useState<Permission[]>(initialDataAccessPermissions.current);
-  const [revokedPermissions, setRevokedPermissions] = useState<Permission[]>(initialDataAccessPermissions.revoked);
+  const [currentPermissions, setCurrentPermissions] = useState<Permission[]>([]);
+  const [revokedPermissions, setRevokedPermissions] = useState<Permission[]>([]);
   
   // Update permissions when sharedAccess loads
   React.useEffect(() => {
-    if (sharedAccess) {
-      // Map backend data to UI format
-      const healthProfessionals = (sharedAccess.health_professionals || []).map((hp, index) => ({
-        id: index + 1,
-        name: hp.profile_fullname || 'Unknown',
-        role: hp.permissions_contact_type || 'Professional',
-        specialty: hp.permissions_relationship || '',
-        accessLevel: hp.accessLevel || 'Parcial',
-        grantedDate: new Date().toISOString(),
-        expiryDate: hp.expires || null,
-        image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-      }));
-      
-      const familyFriends = (sharedAccess.family_friends || []).map((ff, index) => ({
-        id: healthProfessionals.length + index + 1,
-        name: ff.profile_fullname || 'Unknown',
-        role: ff.permissions_contact_type || 'Familiar',
-        specialty: '',
-        accessLevel: ff.accessLevel || 'Limitado',
-        grantedDate: new Date().toISOString(),
-        expiryDate: ff.expires || null,
-        image: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-      }));
-      
-      setCurrentPermissions([...healthProfessionals, ...familyFriends]);
+    if (!sharedAccess) {
+      setCurrentPermissions([]);
+      return;
     }
+
+    const healthProfessionals = (sharedAccess.health_professionals || []).map((hp, index) => ({
+      id: index + 1,
+      name: hp.profile_fullname || 'Unknown',
+      role: hp.permissions_contact_type || 'Professional',
+      specialty: hp.permissions_relationship || '',
+      accessLevel: hp.accessLevel || 'Parcial',
+      grantedDate: hp.lastAccessed || new Date().toISOString(),
+      expiryDate: hp.expires || null,
+      image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    }));
+    
+    const familyFriends = (sharedAccess.family_friends || []).map((ff, index) => ({
+      id: healthProfessionals.length + index + 1,
+      name: ff.profile_fullname || 'Unknown',
+      role: ff.permissions_contact_type || 'Familiar',
+      specialty: '',
+      accessLevel: ff.accessLevel || 'Limitado',
+      grantedDate: ff.lastAccessed || new Date().toISOString(),
+      expiryDate: ff.expires || null,
+      image: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    }));
+    
+    setCurrentPermissions([...healthProfessionals, ...familyFriends]);
   }, [sharedAccess]);
   
   const [integrations, setIntegrations] = useState<Integration[]>([
@@ -155,7 +158,7 @@ export default function ProfileScreen() {
     { id: 'huawei_health', name: 'Huawei Health', connected: false, platform: null },
   ]);
   
-  const [sharingOptions, setSharingOptions] = useState<SharingCategory[]>(initialDataAccessPermissions.sharingOptions);
+  const [sharingOptions, setSharingOptions] = useState<SharingCategory[]>([]);
   
   const [emailNotifications, setEmailNotifications] = useState<NotificationSetting[]>([
     { id: 'appointments', title: 'Lembretes de Consultas', description: 'Receba lembretes 24h antes das suas consultas', enabled: true },
@@ -172,6 +175,7 @@ export default function ProfileScreen() {
   const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
   const [twoFactorModalVisible, setTwoFactorModalVisible] = useState(false);
   const [editEmergencyModalVisible, setEditEmergencyModalVisible] = useState(false);
+  const [addAccessModalVisible, setAddAccessModalVisible] = useState(false);
   const [addContactModalVisible, setAddContactModalVisible] = useState(false);
   const [editingContact, setEditingContact] = useState<any>(null);
   
@@ -226,8 +230,60 @@ export default function ProfileScreen() {
   };
   
   const handleAddNewAccess = () => {
-    console.log('Add new access');
-    Alert.alert(t.addNewAccess, 'Add new access functionality in development.');
+    setAddAccessModalVisible(true);
+  };
+
+  const handleSaveNewAccess = async (input: AddAccessInput) => {
+    try {
+      const entryId = `contact-${Date.now()}`;
+      const newEntry = {
+        id: entryId,
+        permissions_contact_type: input.contactType === 'professional' ? 'professional' : 'personal',
+        profile_fullname: input.fullName,
+        profile_email: input.email,
+        permissions_relationship: input.relationship,
+        medical_history_view: input.permissions.medicalHistory.view,
+        medical_history_download: input.permissions.medicalHistory.download,
+        medical_history_edit: input.permissions.medicalHistory.edit,
+        health_records_view: input.permissions.healthRecords.view,
+        health_records_download: input.permissions.healthRecords.download,
+        health_records_edit: input.permissions.healthRecords.edit,
+        health_plan_view: input.permissions.healthPlan.view,
+        health_plan_download: input.permissions.healthPlan.download,
+        health_plan_edit: input.permissions.healthPlan.edit,
+        medications_view: input.permissions.medications.view,
+        medications_download: input.permissions.medications.download,
+        medications_edit: input.permissions.medications.edit,
+        appointments_view: input.permissions.appointments.view,
+        appointments_edit: input.permissions.appointments.edit,
+        messages_view: input.permissions.messages.view,
+        messages_edit: input.permissions.messages.edit,
+        accessLevel: input.permissions.healthRecords.edit || input.permissions.healthPlan.edit ? 'Completo' : 'Limitado',
+        status: 'Active',
+        lastAccessed: 'Never',
+        expires: input.expires,
+      };
+
+      const current: UserSharedAccess = sharedAccess || {};
+      const updated: UserSharedAccess = {
+        ...current,
+        health_professionals:
+          input.contactType === 'professional'
+            ? [...(current.health_professionals || []), newEntry]
+            : current.health_professionals || [],
+        family_friends:
+          input.contactType === 'personal'
+            ? [...(current.family_friends || []), newEntry]
+            : current.family_friends || [],
+      };
+
+      await updateSharedAccess(updated);
+      setAddAccessModalVisible(false);
+      Alert.alert(t.success || 'Success', 'Access granted successfully.');
+    } catch (err: any) {
+      const message = err?.message || 'Failed to grant access. Please try again.';
+      Alert.alert(t.error || 'Error', message);
+    }
   };
   
   const handleToggleIntegration = (integrationId: string) => {
@@ -644,7 +700,16 @@ export default function ProfileScreen() {
             <View style={styles.permissionCategory}>
               <Text style={styles.permissionCategoryTitle}>{t.healthProfessionals}</Text>
               
-              {currentPermissions.filter(p => p.role === 'Médica' || p.role === 'Médico' || p.role === 'Enfermeiro').map((permission) => (
+              {currentPermissions
+                .filter(p => 
+                  p.role === 'Médica' ||
+                  p.role === 'Médico' ||
+                  p.role === 'Enfermeiro' ||
+                  p.role === 'Professional' ||
+                  p.role === 'Doctor' ||
+                  p.role === 'Healthcare Facility'
+                )
+                .map((permission) => (
                 <View key={permission.id} style={styles.permissionItem}>
                   <View style={styles.permissionHeader}>
                     <Image 
@@ -791,24 +856,27 @@ export default function ProfileScreen() {
         
         {permissionsTab === 'logs' && (
           <View style={styles.permissionsList}>
-            {initialDataAccessPermissions.accessLogs.map((log) => (
-              <View key={log.id} style={styles.logItem}>
-                <View style={styles.logHeader}>
-                  <Image 
-                    source={{ uri: log.image }} 
-                    style={styles.logImage} 
-                  />
-                  <View style={styles.logInfo}>
-                    <Text style={styles.logName}>{log.name}</Text>
-                    <Text style={styles.logAction}>{log.action}</Text>
+            {accessLogs.length === 0 ? (
+              <Text style={styles.emptyStateText}>{t.notDefined || 'No access logs yet.'}</Text>
+            ) : (
+              accessLogs.map((log) => (
+                <View key={log.id} style={styles.logItem}>
+                  <View style={styles.logHeader}>
+                    <View style={styles.logAvatarPlaceholder}>
+                      <Text style={styles.logAvatarText}>{log.name?.charAt(0) || '?'}</Text>
+                    </View>
+                    <View style={styles.logInfo}>
+                      <Text style={styles.logName}>{log.name}</Text>
+                      <Text style={styles.logAction}>{log.action}</Text>
+                    </View>
                   </View>
+                  
+                  <Text style={styles.logTime}>
+                    {log.date}
+                  </Text>
                 </View>
-                
-                <Text style={styles.logTime}>
-                  {log.date} às {log.time}
-                </Text>
-              </View>
-            ))}
+              ))
+            )}
           </View>
         )}
         
@@ -1439,6 +1507,14 @@ export default function ProfileScreen() {
         }}
         isSaving={isUpdatingEmergency}
       />
+
+      {/* Grant data access modal */}
+      <AddAccessModal
+        visible={addAccessModalVisible}
+        loading={isUpdatingSharedAccess}
+        onClose={() => setAddAccessModalVisible(false)}
+        onSave={handleSaveNewAccess}
+      />
     </SafeAreaView>
   );
 }
@@ -1601,6 +1677,19 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: Colors.primary,
     fontWeight: 'bold',
+  },
+  editButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: Colors.secondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  editButtonText: {
+    color: Colors.text,
+    fontWeight: '600',
+    fontSize: 12,
   },
   contactCard: {
     backgroundColor: Colors.background,
@@ -1873,6 +1962,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  logAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  logAvatarText: {
+    color: Colors.text,
+    fontWeight: '700',
   },
   logImage: {
     width: 40,

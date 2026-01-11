@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PermissionsApiService } from '@/lib/api/permissions-api';
 import { useNetworkStatus } from './useNetworkStatus';
 import type { UserSharedAccess } from '@/lib/api/types';
@@ -25,6 +25,28 @@ export function usePermissions() {
     enabled: isConnected, // Only fetch when online
   });
 
+  // Mutation to update shared access and keep cache in sync
+  const queryClient = useQueryClient();
+  const {
+    mutateAsync: updateSharedAccess,
+    isPending: isUpdatingSharedAccess,
+  } = useMutation({
+    mutationFn: (payload: Partial<UserSharedAccess>) =>
+      PermissionsApiService.updateSharedAccess(payload),
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.setQueryData(['shared-access'], data);
+      }
+      refetchAccess();
+      refetchLogs();
+    },
+    onError: () => {
+      // If update fails, refetch to ensure UI stays consistent with backend
+      refetchAccess();
+      refetchLogs();
+    },
+  });
+
   // Fetch access logs
   const {
     data: accessLogs,
@@ -41,15 +63,19 @@ export function usePermissions() {
     enabled: isConnected,
   });
 
+  const normalizedSharedAccess = sharedAccess ?? null;
+
   return {
-    sharedAccess: sharedAccess || ({} as UserSharedAccess),
+    sharedAccess: normalizedSharedAccess,
     accessLogs: accessLogs?.logs || [],
     isLoading: isLoadingAccess || isLoadingLogs,
+    isUpdatingSharedAccess,
     error: accessError || logsError,
     refetch: () => {
       refetchAccess();
       refetchLogs();
     },
+    updateSharedAccess,
   };
 }
 

@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { AuthApiService } from '@/lib/api/auth-api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -12,20 +15,51 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { t } = useLanguage();
+  const { login } = useAuthStore();
 
-  const handleRegister = () => {
-    // In a real app, you would validate and create an account here
-    router.replace('/(tabs)/records');
+  const handleRegister = async () => {
+    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      Alert.alert(t.error || 'Error', t.fillAllFields || 'Please fill all fields.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert(t.error || 'Error', t.passwordsMustMatch || 'Passwords must match.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Create account
+      await AuthApiService.register({
+        email: email.trim(),
+        password,
+        full_name: name.trim(),
+      });
+
+      // Auto-login after successful registration
+      await login(email.trim(), password);
+
+      // Navigate to main tabs (records)
+      router.replace('/(tabs)/records');
+    } catch (err: any) {
+      const message = err?.message || t.error || 'Registration failed';
+      Alert.alert(t.error || 'Error', message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => router.back()}
@@ -113,9 +147,17 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-            <Text style={styles.registerButtonText}>{t.register}</Text>
-          </TouchableOpacity>
+          <TouchableOpacity 
+              style={[styles.registerButton, isLoading && styles.registerButtonDisabled]} 
+              onPress={handleRegister}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={Colors.background} />
+              ) : (
+                <Text style={styles.registerButtonText}>{t.register}</Text>
+              )}
+            </TouchableOpacity>
 
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>{t.alreadyHaveAccount}</Text>
@@ -124,12 +166,17 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     flexGrow: 1,
     backgroundColor: Colors.background,
@@ -200,6 +247,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
     marginBottom: 20,
+  },
+  registerButtonDisabled: {
+    opacity: 0.7,
   },
   registerButtonText: {
     color: Colors.background,
