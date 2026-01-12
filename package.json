@@ -51,6 +51,11 @@
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.0",
     "superjson": "^2.2.2",
+    "@thryve/react-native-sdk": "file:./thryve_modules/thryve-react-native-sdk-5.0.0.tgz",
+    "@thryve/react-native-apple-health-module": "file:./thryve_modules/thryve-react-native-apple-health-module-5.0.0.tgz",
+    "@thryve/react-native-hconnect-module": "file:./thryve_modules/thryve-react-native-hconnect-module-5.0.0.tgz",
+    "@thryve/react-native-shealth-module": "file:./thryve_modules/thryve-react-native-shealth-module-5.0.0.tgz",
+    "@thryve/react-native-shenai-module": "file:./thryve_modules/thryve-react-native-shenai-module-5.0.0.tgz",
     "zod": "^3.25.67",
     "zustand": "^5.0.4"
   },
@@ -58,6 +63,7 @@
     "@babel/core": "^7.25.2",
     "@expo/ngrok": "^4.1.0",
     "@types/react": "~19.1.10",
+    "expo-build-properties": "^0.12.5",
     "typescript": "~5.9.2"
   },
   "private": true

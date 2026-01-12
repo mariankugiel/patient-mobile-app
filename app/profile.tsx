@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Platform, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { 
   ArrowLeft, User, Settings, LogOut, ChevronRight, Shield, 
@@ -17,6 +17,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useEmergency } from '@/hooks/useEmergency';
 import { useNotifications } from '@/hooks/useNotifications';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useThryveIntegration } from '@/hooks/useThryveIntegration';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import EditProfileModal from '@/components/Profile/EditProfileModal';
 import ChangePasswordModal from '@/components/Profile/ChangePasswordModal';
@@ -26,6 +27,7 @@ import TwoFactorAuthModal from '@/components/Profile/TwoFactorAuthModal';
 import AddAccessModal, { AddAccessInput } from '@/components/Profile/AddAccessModal';
 import { getInitials, getAvatarColor } from '@/lib/utils/avatar';
 import { getHealthServiceIconWithBackground } from '@/lib/utils/health-service-icons';
+import { getAvailableIntegrations } from '@/lib/constants/thryve-data-sources';
 import type { UserSharedAccess } from '@/lib/api/types';
 
 type Integration = {
@@ -145,18 +147,14 @@ export default function ProfileScreen() {
     setCurrentPermissions([...healthProfessionals, ...familyFriends]);
   }, [sharedAccess]);
   
-  const [integrations, setIntegrations] = useState<Integration[]>([
-    { id: 'fitbit', name: 'Fitbit', connected: false, platform: null },
-    { id: 'garmin', name: 'Garmin Connect', connected: false, platform: null },
-    { id: 'polar', name: 'Polar', connected: false, platform: null },
-    { id: 'withings', name: 'Withings', connected: false, platform: null },
-    { id: 'strava', name: 'Strava', connected: false, platform: null },
-    { id: 'omron_connect', name: 'Omron Connect', connected: false, platform: null },
-    { id: 'suunto', name: 'Suunto', connected: false, platform: null },
-    { id: 'oura', name: 'Oura', connected: false, platform: null },
-    { id: 'beurer', name: 'Beurer', connected: false, platform: null },
-    { id: 'huawei_health', name: 'Huawei Health', connected: false, platform: null },
-  ]);
+  // Thryve integration hook
+  const {
+    integrations: thryveIntegrations,
+    loading: thryveLoading,
+    connectIntegration,
+    disconnectIntegration,
+    refreshStatus,
+  } = useThryveIntegration();
   
   const [sharingOptions, setSharingOptions] = useState<SharingCategory[]>([]);
   
@@ -286,14 +284,71 @@ export default function ProfileScreen() {
     }
   };
   
-  const handleToggleIntegration = (integrationId: string) => {
-    setIntegrations(integrations.map(integration => 
-      integration.id === integrationId 
-        ? { ...integration, connected: !integration.connected }
-        : integration
-    ));
-    const integration = integrations.find(i => i.id === integrationId);
-    console.log(`Integration ${integration?.name} toggled to: ${!integration?.connected}`);
+  // Handle Thryve callback params
+  const params = useLocalSearchParams();
+  useEffect(() => {
+    if (params.thryveSuccess) {
+      Alert.alert(
+        t.connectionSuccess || 'Success',
+        t.connectionSuccess || 'Connected successfully'
+      );
+      refreshStatus();
+    } else if (params.thryveError) {
+      Alert.alert(
+        t.connectionFailed || 'Error',
+        params.thryveError as string
+      );
+    }
+  }, [params, refreshStatus, t]);
+
+  const handleToggleIntegration = async (integrationId: string) => {
+    const integration = thryveIntegrations.find((i) => i.id === integrationId);
+    if (!integration) return;
+
+    try {
+      if (integration.connected) {
+        // Disconnect
+        Alert.alert(
+          t.disconnect || 'Disconnect',
+          `${t.disconnectConfirm || 'Are you sure you want to disconnect'} ${integrationId}?`,
+          [
+            { text: t.cancel, style: 'cancel' },
+            {
+              text: t.disconnect || 'Disconnect',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await disconnectIntegration(integrationId);
+                  Alert.alert(
+                    t.success || 'Success',
+                    t.disconnected || 'Disconnected successfully'
+                  );
+                } catch (error: any) {
+                  Alert.alert(t.error || 'Error', error.message || 'Failed to disconnect');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        // Connect
+        await connectIntegration(integrationId);
+        // For web data sources, the browser will handle the redirect
+        // For native sources, the connection happens immediately
+        if (integration.available !== false) {
+          // Only show success for native sources (web sources redirect to browser)
+          const config = getAvailableIntegrations().find((c) => c.id === integrationId);
+          if (config?.isNative) {
+            Alert.alert(
+              t.connectionSuccess || 'Success',
+              t.connectionSuccess || 'Connected successfully'
+            );
+          }
+        }
+      }
+    } catch (error: any) {
+      Alert.alert(t.error || 'Error', error.message || 'Failed to toggle integration');
+    }
   };
   
   const handleToggleSharingOption = (categoryId: number, optionId: number) => {
@@ -914,70 +969,103 @@ export default function ProfileScreen() {
 
 
   const renderIntegrationsTab = () => {
-    // Map service IDs to their Lucide icons (matching web app)
-    const getServiceIcon = (serviceId: string) => {
-      const iconProps = { size: 24, color: Colors.primary };
-      switch (serviceId) {
-        case 'fitbit':
-          return <Activity {...iconProps} />;
-        case 'garmin':
-          return <Watch {...iconProps} />;
-        case 'polar':
-          return <Heart {...iconProps} />;
-        case 'withings':
-          return <Stethoscope {...iconProps} />;
-        case 'strava':
-          return <Mountain {...iconProps} />;
-        case 'omron_connect':
-          return <Heart {...iconProps} />;
-        case 'suunto':
-          return <Compass {...iconProps} />;
-        case 'oura':
-          return <CircleDot {...iconProps} />;
-        case 'beurer':
-          return <Thermometer {...iconProps} />;
-        case 'huawei_health':
-          return <Smartphone {...iconProps} />;
-        default:
-          return <Activity {...iconProps} />;
-      }
+    const availableConfigs = getAvailableIntegrations();
+    const nativeIntegrations = availableConfigs.filter((c) => c.isNative);
+    const webIntegrations = availableConfigs.filter((c) => !c.isNative);
+
+    const getIntegrationStatus = (configId: string) => {
+      return thryveIntegrations.find((i) => i.id === configId);
+    };
+
+    const renderIntegrationItem = (config: typeof availableConfigs[0]) => {
+      const status = getIntegrationStatus(config.id);
+      const connected = status?.connected || false;
+      const loading = status?.loading || false;
+      const available = status?.available !== false;
+
+      return (
+        <TouchableOpacity
+          key={config.id}
+          style={styles.integrationItem}
+          onPress={() => available && !loading && handleToggleIntegration(config.id)}
+          disabled={loading || !available}
+        >
+          <View style={styles.integrationItemContent}>
+            {getHealthServiceIconWithBackground(config.id, 24, 48)}
+            <View style={styles.integrationItemInfo}>
+              <View style={styles.integrationTitleRow}>
+                <Text style={styles.integrationItemTitle}>{config.name}</Text>
+                {!available && (
+                  <Text style={styles.platformNote}>
+                  {Platform.OS === 'ios' ? 'iOS' : 'Android'} only
+                </Text>
+                )}
+              </View>
+              <Text style={styles.integrationItemDescription}>
+                {loading
+                  ? t.connecting || 'Connecting...'
+                  : connected
+                  ? t.connected || 'Connected'
+                  : t.notConnected || 'Not Connected'}
+              </Text>
+            </View>
+          </View>
+          {loading ? (
+            <ActivityIndicator size="small" color={Colors.primary} />
+          ) : (
+            <View
+              style={[
+                styles.integrationToggle,
+                connected ? styles.integrationToggleEnabled : styles.integrationToggleDisabled,
+              ]}
+            >
+              <View
+                style={[
+                  styles.integrationToggleHandle,
+                  connected && styles.integrationToggleHandleEnabled,
+                ]}
+              />
+            </View>
+          )}
+        </TouchableOpacity>
+      );
     };
 
     return (
       <View style={styles.tabContent}>
         <Text style={styles.sectionDescription}>
-          Connect your wearable devices and health apps to automatically sync your health data.
+          {t.integrationsDescription || 'Connect your wearable devices and health apps to automatically sync your health data.'}
         </Text>
-        <View style={styles.integrationSection}>
-          {integrations.map((integration) => (
-            <TouchableOpacity 
-              key={integration.id} 
-              style={styles.integrationItem}
-              onPress={() => handleToggleIntegration(integration.id)}
-            >
-              <View style={styles.integrationItemContent}>
-                <View style={[styles.integrationIconContainer, { backgroundColor: Colors.secondary }]}>
-                  {getServiceIcon(integration.id)}
-                </View>
-                <View style={styles.integrationItemInfo}>
-                  <Text style={styles.integrationItemTitle}>{integration.name}</Text>
-                  <Text style={styles.integrationItemDescription}>
-                    {integration.connected ? t.connected || 'Connected' : t.notConnected || 'Not Connected'}
-                  </Text>
-                </View>
-              </View>
-              <View style={[
-                styles.integrationToggle,
-                integration.connected ? styles.integrationToggleEnabled : styles.integrationToggleDisabled
-              ]}>
-                <View style={[
-                  styles.integrationToggleHandle,
-                  integration.connected && styles.integrationToggleHandleEnabled
-                ]} />
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+
+        {/* Mobile Health Services Section */}
+        {nativeIntegrations.length > 0 && (
+          <>
+            <Text style={styles.sectionTitleText}>
+              {t.mobileHealthServices || 'Mobile Health Services'}
+            </Text>
+            <View style={styles.integrationSection}>
+              {nativeIntegrations.map(renderIntegrationItem)}
+            </View>
+          </>
+        )}
+
+        {/* Web Services Section */}
+        {webIntegrations.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitleText, { marginTop: 24 }]}>
+              {t.webServices || 'Web Services'}
+            </Text>
+            <View style={styles.integrationSection}>
+              {webIntegrations.map(renderIntegrationItem)}
+            </View>
+          </>
+        )}
+
+        {thryveLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+          </View>
+        )}
       </View>
     );
   };

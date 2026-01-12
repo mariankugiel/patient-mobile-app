@@ -191,6 +191,20 @@ export interface Translations {
   // Integrations
   connected: string;
   notConnected: string;
+  mobileHealthServices: string;
+  webServices: string;
+  healthConnect: string;
+  appleHealth: string;
+  samsungHealth: string;
+  googleFit: string;
+  connecting: string;
+  connectionSuccess: string;
+  connectionFailed: string;
+  permissionDenied: string;
+  serviceUnavailable: string;
+  disconnectConfirm: string;
+  integrationsDescription: string;
+  disconnected: string;
   healthConnect: string;
   appleHealth: string;
   fitbit: string;
@@ -896,15 +910,25 @@ export const translations: Record<Language, Translations> = {
     // Integrations
     connected: 'Conectado',
     notConnected: 'Não conectado',
+    mobileHealthServices: 'Serviços de Saúde Móveis',
+    webServices: 'Serviços Web',
     healthConnect: 'Health Connect',
     appleHealth: 'Apple Health',
+    samsungHealth: 'Samsung Health',
+    googleFit: 'Google Fit',
+    connecting: 'A conectar...',
+    connectionSuccess: 'Ligação bem-sucedida',
+    connectionFailed: 'Falha na ligação',
+    permissionDenied: 'Permissão negada',
+    serviceUnavailable: 'Serviço não disponível neste dispositivo',
+    disconnectConfirm: 'Tem a certeza de que deseja desconectar',
+    integrationsDescription: 'Conecte os seus dispositivos wearables e aplicações de saúde para sincronizar automaticamente os seus dados de saúde.',
+    disconnected: 'Desconectado com sucesso',
     fitbit: 'Fitbit',
     garmin: 'Garmin',
     polar: 'Polar',
-    samsungHealth: 'Samsung Health',
     withings: 'Withings',
     strava: 'Strava',
-    googleFit: 'Google Fit',
     omronConnect: 'Omron Connect',
     suunto: 'Suunto',
     oura: 'Oura',
@@ -1529,15 +1553,25 @@ export const translations: Record<Language, Translations> = {
     // Integrations
     connected: 'Conectado',
     notConnected: 'No conectado',
+    mobileHealthServices: 'Servicios de Salud Móviles',
+    webServices: 'Servicios Web',
     healthConnect: 'Health Connect',
     appleHealth: 'Apple Health',
+    samsungHealth: 'Samsung Health',
+    googleFit: 'Google Fit',
+    connecting: 'Conectando...',
+    connectionSuccess: 'Conexión exitosa',
+    connectionFailed: 'Error de conexión',
+    permissionDenied: 'Permiso denegado',
+    serviceUnavailable: 'Servicio no disponible en este dispositivo',
+    disconnectConfirm: '¿Está seguro de que desea desconectar',
+    integrationsDescription: 'Conecte sus dispositivos portátiles y aplicaciones de salud para sincronizar automáticamente sus datos de salud.',
+    disconnected: 'Desconectado con éxito',
     fitbit: 'Fitbit',
     garmin: 'Garmin',
     polar: 'Polar',
-    samsungHealth: 'Samsung Health',
     withings: 'Withings',
     strava: 'Strava',
-    googleFit: 'Google Fit',
     omronConnect: 'Omron Connect',
     suunto: 'Suunto',
     oura: 'Oura',
@@ -2232,15 +2266,25 @@ export const translations: Record<Language, Translations> = {
     // Integrations
     connected: 'Connected',
     notConnected: 'Not connected',
+    mobileHealthServices: 'Mobile Health Services',
+    webServices: 'Web Services',
     healthConnect: 'Health Connect',
     appleHealth: 'Apple Health',
+    samsungHealth: 'Samsung Health',
+    googleFit: 'Google Fit',
+    connecting: 'Connecting...',
+    connectionSuccess: 'Connected successfully',
+    connectionFailed: 'Connection failed',
+    permissionDenied: 'Permission denied',
+    serviceUnavailable: 'Service not available on this device',
+    disconnectConfirm: 'Are you sure you want to disconnect',
+    integrationsDescription: 'Connect your wearable devices and health apps to automatically sync your health data.',
+    disconnected: 'Disconnected successfully',
     fitbit: 'Fitbit',
     garmin: 'Garmin',
     polar: 'Polar',
-    samsungHealth: 'Samsung Health',
     withings: 'Withings',
     strava: 'Strava',
-    googleFit: 'Google Fit',
     omronConnect: 'Omron Connect',
     suunto: 'Suunto',
     oura: 'Oura',
