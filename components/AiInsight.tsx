@@ -45,6 +45,11 @@ export default function AiInsight({ insight, simplified = false, healthScore }: 
           )}
         </View>
         {insight.content && <Text style={styles.content}>{insight.content}</Text>}
+        
+        {/* AI Disclaimer */}
+        <View style={styles.disclaimerContainer}>
+          <Text style={styles.disclaimerText}>{t.aiDisclaimer || t.aiExamsDisclaimer || 'AI-generated health summaries are for informational purposes only and do not replace professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider for personalized medical guidance.'}</Text>
+        </View>
       </View>
     );
   }
@@ -114,6 +119,11 @@ export default function AiInsight({ insight, simplified = false, healthScore }: 
           ))}
         </View>
       )}
+
+      {/* AI Disclaimer */}
+      <View style={styles.disclaimerContainer}>
+        <Text style={styles.disclaimerText}>{t.aiDisclaimer || t.aiExamsDisclaimer || 'AI-generated health summaries are for informational purposes only and do not replace professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider for personalized medical guidance.'}</Text>
+      </View>
     </View>
   );
 }
@@ -181,5 +191,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textLight,
     lineHeight: 18,
+  },
+  disclaimerContainer: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  disclaimerText: {
+    fontSize: 11,
+    color: Colors.textLight,
+    lineHeight: 16,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

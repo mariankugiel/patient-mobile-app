@@ -332,7 +332,290 @@ export class HealthRecordsApiService {
   }
 
   /**
-   * Upload a document
+   * Upload and analyze a lab document (returns parsed results, doesn't create records)
+   */
+  static async uploadAndAnalyzeLabDocument(
+    file: { uri: string; type: string; name: string },
+    documentData: {
+      lab_test_date?: string;
+      lab_test_type?: string;
+      provider?: string;
+      description?: string;
+    }
+  ): Promise<any> {
+    try {
+      const formData = new FormData();
+      
+      // Add file
+      formData.append('file', {
+        uri: file.uri,
+        type: file.type,
+        name: file.name,
+      } as any);
+      
+      // Add metadata
+      if (documentData.description) {
+        formData.append('description', documentData.description);
+      }
+      if (documentData.lab_test_date) {
+        formData.append('doc_date', documentData.lab_test_date);
+      }
+      if (documentData.lab_test_type) {
+        formData.append('doc_type', documentData.lab_test_type);
+      }
+      if (documentData.provider) {
+        formData.append('provider', documentData.provider);
+      }
+      formData.append('use_ocr', 'false');
+      
+      const response = await apiClient.post('/health-records/health-record-doc-lab/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to upload and analyze document');
+    }
+  }
+
+  /**
+   * Bulk create health records from lab document analysis results
+   */
+  static async bulkCreateLabRecords(bulkData: {
+    records: Array<{
+      lab_name?: string;
+      type_of_analysis?: string;
+      metric_name: string;
+      date_of_value?: string;
+      value: string | number;
+      unit?: string;
+      reference?: string;
+    }>;
+    file_name: string;
+    description?: string;
+    s3_url: string;
+    lab_test_date: string;
+    provider?: string;
+    document_type?: string;
+    detected_language?: string;
+    translation_applied?: boolean;
+    user_language?: string;
+  }): Promise<any> {
+    try {
+      const response = await apiClient.post('/health-records/health-record-doc-lab/bulk', bulkData);
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to create health records');
+    }
+  }
+
+  /**
+   * Get medical documents (lab documents)
+   */
+  static async getMedicalDocuments(
+    skip: number = 0,
+    limit: number = 100,
+    documentType?: string
+  ): Promise<any[]> {
+    try {
+      const params: any = {
+        skip: skip.toString(),
+        limit: limit.toString(),
+      };
+      if (documentType) {
+        params.document_type = documentType;
+      }
+      const response = await apiClient.get('/health-records/health-record-doc-lab', { params });
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to fetch medical documents');
+    }
+  }
+
+  /**
+   * Update medical document (lab document)
+   */
+  static async updateMedicalDocument(
+    documentId: number,
+    updateData: {
+      lab_test_date?: string;
+      lab_doc_type?: string;
+      provider?: string;
+      description?: string;
+    }
+  ): Promise<any> {
+    try {
+      const response = await apiClient.put(
+        `/health-records/health-record-doc-lab/${documentId}`,
+        updateData
+      );
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to update medical document');
+    }
+  }
+
+  /**
+   * Upload and analyze medical image (exam) PDF
+   */
+  static async uploadMedicalImage(
+    file: { uri: string; type: string; name: string }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    extracted_info?: any;
+    translated_info?: any;
+    detected_language?: string;
+    user_language?: string;
+    translation_applied?: boolean;
+    s3_key: string;
+    filename: string;
+    duplicate_found?: boolean;
+    existing_document?: any;
+  }> {
+    try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        type: file.type,
+        name: file.name,
+      } as any);
+
+      const response = await apiClient.post('/health-records/images/upload-pdf', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to upload medical image');
+    }
+  }
+
+  /**
+   * Save medical image (exam) after upload and analysis
+   */
+  static async saveMedicalImage(imageData: {
+    image_type: string;
+    body_part?: string;
+    image_date: string;
+    interpretation?: string;
+    conclusions?: string;
+    doctor_name?: string;
+    doctor_number?: string;
+    original_filename: string;
+    file_size_bytes: number;
+    content_type: string;
+    s3_key: string;
+    findings?: string;
+  }): Promise<{ success: boolean; message: string; id: number }> {
+    try {
+      const response = await apiClient.post('/health-records/health-record-doc-exam', imageData, {
+        timeout: 60000,
+      });
+      return {
+        success: true,
+        message: 'Medical image saved successfully',
+        id: response.data.id,
+      };
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to save medical image');
+    }
+  }
+
+  /**
+   * Get medical images (exams) list
+   */
+  static async getMedicalImages(
+    skip: number = 0,
+    limit: number = 100
+  ): Promise<Array<{
+    id: number;
+    image_type: string;
+    body_part?: string;
+    image_date: string;
+    findings?: string;
+    conclusions?: string;
+    interpretation?: string;
+    original_filename: string;
+    file_size_bytes: number;
+    content_type: string;
+    s3_key: string;
+    doctor_name?: string;
+    doctor_number?: string;
+    notes?: string;
+    created_at: string;
+    updated_at: string;
+  }>> {
+    try {
+      const response = await apiClient.get('/health-records/health-record-doc-exam', {
+        params: {
+          skip: skip.toString(),
+          limit: limit.toString(),
+        },
+      });
+      return response.data.images || response.data || [];
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to fetch medical images');
+    }
+  }
+
+  /**
+   * Update medical image
+   */
+  static async updateMedicalImage(
+    imageId: number,
+    updateData: {
+      image_type?: string;
+      body_part?: string;
+      findings?: string;
+      notes?: string;
+      interpretation?: string;
+      conclusions?: string;
+      doctor_name?: string;
+      doctor_number?: string;
+    }
+  ): Promise<any> {
+    try {
+      const response = await apiClient.put(
+        `/health-records/health-record-doc-exam/${imageId}`,
+        updateData
+      );
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to update medical image');
+    }
+  }
+
+  /**
+   * Delete medical image
+   */
+  static async deleteMedicalImage(imageId: number): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiClient.delete(`/health-records/health-record-doc-exam/${imageId}`);
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to delete medical image');
+    }
+  }
+
+  /**
+   * Get medical image download URL
+   */
+  static async getMedicalImageViewUrl(imageId: number): Promise<{ download_url: string; filename: string }> {
+    try {
+      const response = await apiClient.get(`/health-records/health-record-doc-exam/${imageId}/download`);
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to get medical image download URL');
+    }
+  }
+
+  /**
+   * Upload a document (legacy method - kept for backward compatibility)
    */
   static async uploadDocument(
     file: { uri: string; type: string; name: string },

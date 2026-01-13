@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Linking } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Plus, Calendar, Clock, MapPin, Video, Phone, ChevronRight, X } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Plus, Calendar, Clock, MapPin, Video, Phone, ChevronRight, X, Menu } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAppointments } from '@/hooks/useAppointments';
 import { FrontendAppointment } from '@/lib/api/appointments-api';
 import TabView from '@/components/TabView';
+import SideDrawer from '@/components/SideDrawer';
 
 type TabType = 'upcoming' | 'past' | 'cancelled';
 
@@ -15,8 +16,16 @@ export default function AppointmentsScreen() {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   const { appointments, loading, error, cancelAppointment, refresh } = useAppointments();
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   // Filter appointments by status
   const filteredAppointments = useMemo(() => {
@@ -310,37 +319,64 @@ export default function AppointmentsScreen() {
     );
   };
 
+  // Calculate counts for each tab from all appointments
+  const now = new Date();
+  const upcomingCount = appointments.filter(apt => {
+    const appointmentDate = new Date(apt.date);
+    return apt.status === 'upcoming' && appointmentDate >= now;
+  }).length;
+
+  const pastCount = appointments.filter(apt => {
+    const appointmentDate = new Date(apt.date);
+    return apt.status === 'completed' || (apt.status === 'upcoming' && appointmentDate < now);
+  }).length;
+
+  const cancelledCount = appointments.filter(apt => apt.status === 'cancelled').length;
+
   const tabs = [
     {
       key: 'upcoming',
-      title: t.appointmentsUpcoming || t.upcoming || 'Upcoming',
+      title: `${t.appointmentsUpcoming || t.upcoming || 'Upcoming'}${upcomingCount > 0 ? `(${upcomingCount})` : ''}`,
       icon: Calendar,
     },
     {
       key: 'past',
-      title: t.appointmentsPast || t.past || 'Past',
+      title: `${t.appointmentsPast || t.past || 'Past'}${pastCount > 0 ? `(${pastCount})` : ''}`,
       icon: Clock,
     },
     {
       key: 'cancelled',
-      title: t.appointmentsCancelled || t.cancelled || 'Cancelled',
+      title: `${t.appointmentsCancelled || t.cancelled || 'Cancelled'}${cancelledCount > 0 ? `(${cancelledCount})` : ''}`,
       icon: X,
     },
   ];
 
+  // Hide header add button when there are no appointments or while loading
+  const hasAppointments = !loading && filteredAppointments.length > 0;
+
   return (
     <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.title}>{t.appointments || 'Appointments'}</Text>
+      <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} onOpen={() => setDrawerVisible(true)} />
+      <View style={styles.topHeader}>
         <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => router.push('/add-appointment')}
+          style={styles.menuButton}
+          onPress={() => setDrawerVisible(true)}
         >
-          <Plus size={20} color={Colors.background} />
-          <Text style={styles.addButtonText}>
-            {t.appointmentsBookAppointment || 'Book'}
-          </Text>
+          <Menu size={24} color={Colors.text} />
         </TouchableOpacity>
+        <Text style={styles.topHeaderTitle}>{t.appointments || 'Appointments'}</Text>
+        {hasAppointments && (
+          <TouchableOpacity
+            style={styles.topHeaderAddButton}
+            onPress={() => router.push('/add-appointment')}
+          >
+            <Plus size={20} color={Colors.background} />
+            <Text style={styles.topHeaderAddButtonText}>
+              {t.appointmentsBookAppointment || 'Book'}
+            </Text>
+          </TouchableOpacity>
+        )}
+        {!hasAppointments && <View style={{ width: 40 }} />}
       </View>
 
       <TabView
@@ -359,21 +395,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  headerContainer: {
+  topHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 60,
-    paddingBottom: 16,
+    paddingBottom: 12,
     backgroundColor: Colors.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  title: {
-    fontSize: 24,
+  menuButton: {
+    padding: 4,
+  },
+  topHeaderTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: Colors.text,
+  },
+  topHeaderAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  topHeaderAddButtonText: {
+    color: Colors.background,
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   addButton: {
     flexDirection: 'row',

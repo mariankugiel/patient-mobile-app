@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Image, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Image, Linking, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, Clock, LineChart, Heart, Scale, Dumbbell, Syringe, TrendingUp, TrendingDown, Minus, FileText, Download, Upload, Stethoscope } from 'lucide-react-native';
-import Header from '@/components/Header';
+import { Plus, Clock, LineChart, Heart, Scale, Dumbbell, Syringe, TrendingUp, TrendingDown, Minus, FileText, Download, Upload, Stethoscope, Calendar, Edit, Trash2, Menu } from 'lucide-react-native';
+import SideDrawer from '@/components/SideDrawer';
 import ProgressRing from '@/components/ProgressRing';
 import MetricCard from '@/components/MetricCard';
 import SectionHeader from '@/components/SectionHeader';
@@ -31,6 +31,7 @@ import { useSurgeryHospitalization } from '@/hooks/useSurgeryHospitalization';
 const screenWidth = Dimensions.get('window').width;
 
 type TabType = 'sumario' | 'historial' | 'analises' | 'vitais' | 'corpo' | 'lifestyle' | 'vacinas' | 'exames';
+type AnalysisSubTabType = 'metrics' | 'documents';
 type StatusType = 'normal' | 'warning' | 'danger';
 type TrendType = 'up' | 'down' | 'stable';
 
@@ -83,6 +84,7 @@ export default function RecordsScreen() {
   const { t, language } = useLanguage();
   const { profile } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabType>('sumario');
+  const [activeAnalysisSubTab, setActiveAnalysisSubTab] = useState<AnalysisSubTabType>('metrics');
 
   const tabs = [
     { key: 'sumario', title: t.summary, icon: LineChart },
@@ -98,6 +100,11 @@ export default function RecordsScreen() {
   const { data: summaryData, isLoading: summaryLoading, error: summaryError } = useHealthRecordsSummary();
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [medicalDocuments, setMedicalDocuments] = useState<any[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [medicalImages, setMedicalImages] = useState<any[]>([]);
+  const [imagesLoading, setImagesLoading] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
   
   // Dashboard data for each tab - only fetch the active tab's data
   const { data: analysesData, isLoading: analysesLoading } = useHealthRecordsDashboard(1, activeTab === 'analises'); // Analyses
@@ -218,10 +225,64 @@ export default function RecordsScreen() {
         } finally {
           setAiLoading(false);
         }
+      } else if (activeTab === 'exames') {
+        setAiLoading(true);
+        try {
+          let analysis = await HealthRecordsApiService.getAIAnalysis(5);
+          if (!analysis) {
+            analysis = await HealthRecordsApiService.generateAIAnalysis(5, false);
+          }
+          setAiAnalysis(analysis);
+        } catch (error: any) {
+          console.error('Failed to fetch Exams AI analysis:', error);
+          setAiAnalysis(null);
+        } finally {
+          setAiLoading(false);
+        }
       }
     };
 
     fetchAIAnalysis();
+  }, [activeTab]);
+
+  // Fetch medical documents when analysis tab is active
+  useEffect(() => {
+    const fetchMedicalDocuments = async () => {
+      if (activeTab === 'analises') {
+        setDocumentsLoading(true);
+        try {
+          const docs = await HealthRecordsApiService.getMedicalDocuments(0, 10);
+          setMedicalDocuments(docs);
+        } catch (error: any) {
+          console.error('Failed to fetch medical documents:', error);
+          setMedicalDocuments([]);
+        } finally {
+          setDocumentsLoading(false);
+        }
+      }
+    };
+
+    fetchMedicalDocuments();
+  }, [activeTab]);
+
+  // Fetch medical images when exams tab is active
+  useEffect(() => {
+    const fetchMedicalImages = async () => {
+      if (activeTab === 'exames') {
+        setImagesLoading(true);
+        try {
+          const images = await HealthRecordsApiService.getMedicalImages(0, 100);
+          setMedicalImages(images);
+        } catch (error: any) {
+          console.error('Failed to fetch medical images:', error);
+          setMedicalImages([]);
+        } finally {
+          setImagesLoading(false);
+        }
+      }
+    };
+
+    fetchMedicalImages();
   }, [activeTab]);
 
   // Format metric value for display (returns just the number, unit is passed separately)
@@ -1047,7 +1108,36 @@ export default function RecordsScreen() {
     </ScrollView>
   );
 
-  const renderAnalisesTab = () => {
+  // Helper functions for Analysis tab
+  const translateDocumentType = (docType: string | null | undefined): string => {
+    if (!docType) return '';
+    
+    const typeMap: Record<string, string> = {
+      'Complete Blood Count': t.completeBloodCount,
+      'Comprehensive Metabolic Panel': t.comprehensiveMetabolicPanel,
+      'Lipid Panel': t.lipidPanel,
+      'Hemoglobin A1C': t.hemoglobinA1C,
+      'Other': t.other,
+    };
+    
+    return typeMap[docType] || docType;
+  };
+
+  const formatDocumentDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return t.noDate;
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString(language, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const renderMetricsView = () => {
     if (analysesLoading || aiLoading) {
       return (
         <View style={[styles.tabContent, { justifyContent: 'center', alignItems: 'center', padding: 40 }]}>
@@ -1062,9 +1152,8 @@ export default function RecordsScreen() {
     const hasSections = analysesData?.sections && analysesData.sections.length > 0;
     const hasMetrics = allMetrics.length > 0;
 
-
     return (
-      <View style={styles.tabContent}>
+      <ScrollView style={styles.tabContent} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* AI Analysis */}
         {analysesAiAnalysis && (
           <AiInsight insight={{
@@ -1092,7 +1181,6 @@ export default function RecordsScreen() {
           analysesData.sections.map((section) => {
             if (!section.metrics || section.metrics.length === 0) return null;
             
-            
             return (
               <View key={section.id}>
                 <SectionHeader title={section.display_name || section.name} showViewAll={false} />
@@ -1102,7 +1190,6 @@ export default function RecordsScreen() {
                     const latestValue = formatMetricValue(metric);
                     const referenceRange = formatReferenceRange(metric);
                     // Map backend status to frontend StatusType
-                    // Backend can return: 'normal' | 'abnormal' | 'critical' | 'unknown' | null | undefined
                     const backendStatus = metric.latest_status?.toLowerCase();
                     let status: StatusType = 'normal';
                     if (backendStatus === 'critical') {
@@ -1112,8 +1199,6 @@ export default function RecordsScreen() {
                     } else if (backendStatus === 'normal') {
                       status = 'normal';
                     } else if (!backendStatus || backendStatus === 'unknown') {
-                      // If status is unknown or missing, we need to calculate it from the value
-                      // For now, default to normal, but ideally should check against reference ranges
                       status = 'normal';
                     }
                     const statusColor = status === 'normal' ? Colors.success : status === 'warning' ? Colors.warning : Colors.danger;
@@ -1175,6 +1260,127 @@ export default function RecordsScreen() {
             <Plus size={20} color={Colors.background} />
             <Text style={styles.addButtonText}>{t.addMetric}</Text>
           </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const renderLabDocumentsView = () => {
+    return (
+      <ScrollView style={styles.tabContent} contentContainerStyle={{ paddingBottom: 100 }}>
+        <View style={styles.documentsSection}>
+          <View style={styles.documentsHeader}>
+            <Text style={styles.documentsTitle}>{t.labDocuments || 'Lab Documents'}</Text>
+            <TouchableOpacity
+              style={styles.addDocumentButton}
+              onPress={() => router.push('/upload-document')}
+            >
+              <Plus size={16} color={Colors.primary} />
+              <Text style={styles.addDocumentButtonText}>{t.add || 'Add'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {documentsLoading ? (
+            <View style={styles.documentsLoadingContainer}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.documentsEmptyText}>{t.loadingDocuments || 'Loading documents...'}</Text>
+            </View>
+          ) : medicalDocuments.length > 0 ? (
+            <View style={styles.documentsList}>
+              {medicalDocuments.map((doc) => (
+                <View key={doc.id} style={styles.documentCard}>
+                  <View style={styles.documentInfo}>
+                    <View style={styles.documentHeaderRow}>
+                      <Calendar size={14} color={Colors.textLight} />
+                      <Text style={styles.documentDate}>
+                        {formatDocumentDate(doc.lab_test_date)}
+                      </Text>
+                      {doc.provider && (
+                        <>
+                          <Text style={styles.documentSeparator}> • </Text>
+                          <Text style={styles.documentProvider}>{doc.provider}</Text>
+                        </>
+                      )}
+                    </View>
+                    {doc.lab_doc_type && (
+                      <Text style={styles.documentType}>
+                        {translateDocumentType(doc.lab_doc_type)}
+                      </Text>
+                    )}
+                    {doc.description && (
+                      <Text style={styles.documentDescription} numberOfLines={2}>
+                        {doc.description}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.documentActions}>
+                    <TouchableOpacity
+                      style={styles.documentActionButton}
+                      onPress={() => {
+                        // Handle view document
+                        if (doc.s3_url) {
+                          Linking.openURL(doc.s3_url);
+                        }
+                      }}
+                    >
+                      <FileText size={16} color={Colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.documentActionButton}
+                      onPress={() => {
+                        router.push({
+                          pathname: '/edit-lab-document',
+                          params: { id: doc.id.toString() }
+                        });
+                      }}
+                    >
+                      <Edit size={16} color={Colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.documentActionButton}
+                      onPress={() => {
+                        // Handle delete
+                        Alert.alert(
+                          t.deleteDocument || 'Delete Document',
+                          t.deleteDocumentConfirm || 'Are you sure you want to delete this document?',
+                          [
+                            { text: t.cancel || 'Cancel', style: 'cancel' },
+                            {
+                              text: t.delete || 'Delete',
+                              style: 'destructive',
+                              onPress: async () => {
+                                try {
+                                  // Call delete API if available
+                                  // await HealthRecordsApiService.deleteMedicalDocument(doc.id);
+                                  // Refresh documents
+                                  const docs = await HealthRecordsApiService.getMedicalDocuments(0, 10);
+                                  setMedicalDocuments(docs);
+                                } catch (error: any) {
+                                  Alert.alert(t.error || 'Error', error.message || t.failedToDelete || 'Failed to delete');
+                                }
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <Trash2 size={16} color={Colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.documentsEmpty}>
+              <FileText size={48} color={Colors.textLight} />
+              <Text style={styles.documentsEmptyText}>
+                {t.noLabDocumentsYet || 'No lab documents yet'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.addButtonContainer}>
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => router.push('/upload-document')}
@@ -1183,6 +1389,51 @@ export default function RecordsScreen() {
             <Text style={styles.addButtonText}>{t.uploadDocument}</Text>
           </TouchableOpacity>
         </View>
+      </ScrollView>
+    );
+  };
+
+  const renderAnalisesTab = () => {
+    return (
+      <View style={styles.tabContent}>
+        {/* Sub-tabs for Analysis */}
+        <View style={styles.subTabsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.subTab,
+              activeAnalysisSubTab === 'metrics' && styles.subTabActive,
+            ]}
+            onPress={() => setActiveAnalysisSubTab('metrics')}
+          >
+            <Text
+              style={[
+                styles.subTabText,
+                activeAnalysisSubTab === 'metrics' && styles.subTabTextActive,
+              ]}
+            >
+              {t.metrics || 'Metrics'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.subTab,
+              activeAnalysisSubTab === 'documents' && styles.subTabActive,
+            ]}
+            onPress={() => setActiveAnalysisSubTab('documents')}
+          >
+            <Text
+              style={[
+                styles.subTabText,
+                activeAnalysisSubTab === 'documents' && styles.subTabTextActive,
+              ]}
+            >
+              {t.labDocuments || 'Lab Documents'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Render active sub-tab content */}
+        {activeAnalysisSubTab === 'metrics' ? renderMetricsView() : renderLabDocumentsView()}
       </View>
     );
   };
@@ -1610,50 +1861,174 @@ export default function RecordsScreen() {
   };
 
   const renderExamesTab = () => {
-    const insights = getTabInsights(t);
+
+    const translateImageType = (imageType: string | null | undefined): string => {
+      if (!imageType) return '';
+      const typeMap: Record<string, string> = {
+        'X-Ray': t.xRay || 'X-Ray',
+        'Ultrasound': t.ultrasound || 'Ultrasound',
+        'MRI': t.mri || 'MRI',
+        'CT Scan': t.ctScan || 'CT Scan',
+        'ECG': t.ecg || 'ECG',
+        'Others': t.others || 'Others',
+      };
+      return typeMap[imageType] || imageType;
+    };
+
+    const formatExamDate = (dateString: string | null | undefined): string => {
+      if (!dateString) return t.noDate;
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString(language, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      } catch {
+        return dateString;
+      }
+    };
+
+    const handleViewExam = async (exam: any) => {
+      try {
+        // Get download URL from backend
+        const response = await HealthRecordsApiService.getMedicalImageViewUrl?.(exam.id);
+        if (response?.download_url) {
+          Linking.openURL(response.download_url);
+        } else {
+          Alert.alert(t.error || 'Error', t.failedToLoadDocument || 'Failed to load document');
+        }
+      } catch (error: any) {
+        Alert.alert(t.error || 'Error', error.message || t.failedToLoadDocument || 'Failed to load document');
+      }
+    };
+
+    const handleDeleteExam = (exam: any) => {
+      Alert.alert(
+        t.deleteDocument || 'Delete Exam',
+        t.deleteDocumentConfirm || 'Are you sure you want to delete this exam?',
+        [
+          { text: t.cancel || 'Cancel', style: 'cancel' },
+          {
+            text: t.delete || 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await HealthRecordsApiService.deleteMedicalImage(exam.id);
+                setMedicalImages(prev => prev.filter(img => img.id !== exam.id));
+                Alert.alert(t.success || 'Success', t.documentDeleted || 'Exam deleted successfully');
+              } catch (error: any) {
+                Alert.alert(t.error || 'Error', error.message || t.failedToDelete || 'Failed to delete exam');
+              }
+            },
+          },
+        ]
+      );
+    };
+
     return (
       <View style={styles.tabContent}>
-        <View style={styles.examsHeaderContainer}>
-          <Text style={styles.examsHeaderTitle}>{t.aiMedicalExamsAnalysis}</Text>
-        </View>
+        {imagesLoading || aiLoading ? (
+          <View style={[styles.tabContent, { justifyContent: 'center', alignItems: 'center', padding: 40 }]}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={{ marginTop: 16, color: Colors.textLight }}>{t.loading}</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.examsHeaderContainer}>
+              <Text style={styles.examsHeaderTitle}>{t.aiMedicalExamsAnalysis}</Text>
+            </View>
 
-        <AiInsight insight={insights.exames} />
+            {aiAnalysis && (
+              <AiInsight insight={{
+                title: aiAnalysis.title || t.aiMedicalExamsAnalysis,
+                date: aiAnalysis.generated_at || new Date().toISOString(),
+                concerns: aiAnalysis.areas_of_concern || aiAnalysis.concerns || [],
+                improvements: aiAnalysis.positive_trends || aiAnalysis.improvements || [],
+                recommendations: aiAnalysis.recommendations || [],
+              }} />
+            )}
 
-        <View style={styles.disclaimerContainer}>
-          <Text style={styles.disclaimerText}>{t.aiExamsDisclaimer}</Text>
-        </View>
+            {imagesLoading ? (
+              <View style={styles.documentsLoadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={styles.documentsEmptyText}>{t.loadingDocuments || 'Loading exams...'}</Text>
+              </View>
+            ) : medicalImages.length > 0 ? (
+              <View style={styles.documentsList}>
+                {medicalImages.map((exam) => (
+                  <View key={exam.id} style={styles.documentCard}>
+                    <View style={styles.documentInfo}>
+                      <View style={styles.documentHeaderRow}>
+                        <Calendar size={14} color={Colors.textLight} />
+                        <Text style={styles.documentDate}>
+                          {formatExamDate(exam.image_date)}
+                        </Text>
+                        {exam.doctor_name && (
+                          <>
+                            <Text style={styles.documentSeparator}> • </Text>
+                            <Text style={styles.documentProvider}>{exam.doctor_name}</Text>
+                          </>
+                        )}
+                      </View>
+                      <Text style={styles.documentType}>{translateImageType(exam.image_type)}</Text>
+                      {exam.body_part && (
+                        <Text style={styles.documentDescription} numberOfLines={1}>
+                          {t.bodyPart || 'Body Part'}: {exam.body_part}
+                        </Text>
+                      )}
+                      {exam.findings && (
+                        <Text style={styles.documentDescription} numberOfLines={1}>
+                          {t.findings || 'Findings'}: {exam.findings}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.documentActions}>
+                      <TouchableOpacity
+                        style={styles.documentActionButton}
+                        onPress={() => handleViewExam(exam)}
+                      >
+                        <FileText size={20} color={Colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.documentActionButton}
+                        onPress={() => {
+                          router.push({
+                            pathname: '/edit-exam',
+                            params: { id: exam.id.toString() }
+                          });
+                        }}
+                      >
+                        <Edit size={20} color={Colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.documentActionButton}
+                        onPress={() => handleDeleteExam(exam)}
+                      >
+                        <Trash2 size={20} color={Colors.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.documentsEmpty}>
+                <FileText size={48} color={Colors.textLight} />
+                <Text style={styles.documentsEmptyText}>{t.noMedicalExamsYet || 'No medical exams yet.'}</Text>
+              </View>
+            )}
 
-        <View style={styles.examsListContainer}>
-          {medicalExams.map((exam) => (
-            <ExamItem
-              key={exam.id}
-              type={exam.type}
-              date={exam.date}
-              region={exam.region}
-              conclusion={exam.conclusion}
-              fileName={exam.fileName}
-              risk={exam.risk}
-              onView={() => {
-                if (exam.fileUrl) {
-                  Linking.openURL(exam.fileUrl);
-                }
-              }}
-              onEdit={() => {
-                console.log('Edit exam', exam.id);
-              }}
-            />
-          ))}
-        </View>
-
-        <View style={styles.addButtonContainer}>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push('/upload-document')}
-          >
-            <Upload size={20} color={Colors.background} />
-            <Text style={styles.addButtonText}>{t.uploadExam}</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.addButtonContainer}>
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => router.push('/upload-exam')}
+              >
+                <Upload size={20} color={Colors.background} />
+                <Text style={styles.addButtonText}>{t.uploadExam || 'Upload Exam'}</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </View>
     );
   };
@@ -1733,22 +2108,28 @@ export default function RecordsScreen() {
 
   return (
     <View style={styles.container}>
-      <Header />
+      <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} onOpen={() => setDrawerVisible(true)} />
+      <View style={styles.topHeader}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setDrawerVisible(true)}
+        >
+          <Menu size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.topHeaderTitle}>{t.healthRecords}</Text>
+        <TouchableOpacity
+          style={styles.topHeaderAddButton}
+          onPress={() => router.push({ pathname: '/add-metric', params: { type: 'analyses' } })}
+        >
+          <Plus size={20} color={Colors.background} />
+          <Text style={styles.topHeaderAddButtonText}>{t.add}</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>{t.healthRecords}</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push({ pathname: '/add-metric', params: { type: 'analyses' } })}
-          >
-            <Plus size={20} color={Colors.background} />
-            <Text style={styles.addButtonText}>{t.add}</Text>
-          </TouchableOpacity>
-        </View>
 
         <TabView
           tabs={tabs}
@@ -1767,24 +2148,44 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 12,
+    backgroundColor: Colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  menuButton: {
+    padding: 4,
+  },
+  topHeaderTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.text,
+  },
+  topHeaderAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  topHeaderAddButtonText: {
+    color: Colors.background,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: 24,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.text,
   },
   addButton: {
     flexDirection: 'row',
@@ -1793,11 +2194,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    gap: 4,
   },
   addButtonText: {
     color: Colors.background,
     fontWeight: 'bold',
-    marginLeft: 4,
+    fontSize: 14,
   },
   tabContent: {
     paddingHorizontal: 16,
@@ -2232,63 +2634,135 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     fontStyle: 'italic',
   },
-  documentsContainer: {
+  subTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: Colors.secondary,
+    borderRadius: 8,
+    padding: 4,
     marginBottom: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
+  },
+  subTab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subTabActive: {
+    backgroundColor: Colors.primary,
+  },
+  subTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textLight,
+  },
+  subTabTextActive: {
+    color: Colors.background,
+    fontWeight: 'bold',
+  },
+  documentsSection: {
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
+  documentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  documentsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+  },
+  addDocumentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.primary + '20',
+  },
+  addDocumentButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  documentsLoadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  documentsList: {
+    gap: 8,
   },
   documentCard: {
     flexDirection: 'row',
-    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.secondary,
     borderRadius: 12,
     padding: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  documentImageContainer: {
-    width: 60,
-    height: 80,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginRight: 12,
-  },
-  documentImage: {
-    width: '100%',
-    height: '100%',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   documentInfo: {
     flex: 1,
-    justifyContent: 'center',
+    marginRight: 8,
   },
-  documentTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.text,
+  documentHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
   documentDate: {
     fontSize: 14,
-    color: Colors.primary,
-    marginBottom: 2,
+    fontWeight: '600',
+    color: Colors.text,
+    marginLeft: 4,
   },
-  documentLocation: {
+  documentSeparator: {
+    fontSize: 14,
+    color: Colors.textLight,
+  },
+  documentProvider: {
+    fontSize: 14,
+    color: Colors.textLight,
+  },
+  documentType: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+    marginTop: 2,
+  },
+  documentDescription: {
     fontSize: 12,
     color: Colors.textLight,
-    marginBottom: 2,
-  },
-  documentDoctor: {
-    fontSize: 12,
-    color: Colors.textLight,
+    marginTop: 4,
   },
   documentActions: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingLeft: 12,
+    flexDirection: 'row',
+    gap: 8,
   },
-  documentButton: {
+  documentActionButton: {
     padding: 8,
+  },
+  documentsEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  documentsEmptyText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
+  },
+  documentsContainer: {
+    marginBottom: 16,
   },
   examsHeaderContainer: {
     marginBottom: 16,

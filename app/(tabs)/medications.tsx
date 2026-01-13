@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Plus, Pill, Edit, Trash2, Calendar, Clock, FileText, X } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Plus, Pill, Edit, Trash2, Calendar, Clock, FileText, X, Menu } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMedications } from '@/hooks/useMedications';
 import { Medication } from '@/lib/api/medications-api';
 import TabView from '@/components/TabView';
+import SideDrawer from '@/components/SideDrawer';
 
 type TabType = 'current' | 'previous';
 
@@ -16,6 +17,7 @@ export default function MedicationsScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('current');
   const [endingMedicationId, setEndingMedicationId] = useState<number | null>(null);
   const [deletingMedicationId, setDeletingMedicationId] = useState<number | null>(null);
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   const { 
     medications: currentMeds, 
@@ -38,13 +40,21 @@ export default function MedicationsScreen() {
     { key: 'previous', title: t.medicationsPreviousMedications || 'Previous Medications', icon: Clock },
   ];
 
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshCurrent();
+      refreshPrevious();
+    }, [refreshCurrent, refreshPrevious])
+  );
+
   const handleAddMedication = () => {
     router.push('/add-medication');
   };
 
   const handleEditMedication = (medication: Medication) => {
     router.push({
-      pathname: '/medication-detail',
+      pathname: '/edit-medication',
       params: { id: medication.id.toString() }
     });
   };
@@ -232,35 +242,47 @@ export default function MedicationsScreen() {
         )}
       </View>
 
-      {(medication.rx_number || medication.pharmacy || medication.original_quantity !== undefined || medication.refills_remaining !== undefined) && (
-        <View style={styles.prescriptionInfo}>
-          <Text style={styles.prescriptionTitle}>{t.medicationsPrescriptionInfo || 'Prescription Information'}</Text>
-          {medication.rx_number && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t.medicationsRxNumber || 'Rx Number'}:</Text>
-              <Text style={styles.infoValue}>{medication.rx_number}</Text>
-            </View>
-          )}
-          {medication.pharmacy && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t.medicationsPharmacy || 'Pharmacy'}:</Text>
-              <Text style={styles.infoValue}>{medication.pharmacy}</Text>
-            </View>
-          )}
-          {medication.original_quantity !== undefined && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t.medicationsQuantity || 'Quantity'}:</Text>
-              <Text style={styles.infoValue}>{medication.original_quantity}</Text>
-            </View>
-          )}
-          {medication.refills_remaining !== undefined && medication.refills_remaining !== null && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t.medicationsRefillsRemaining || 'Refills Remaining'}:</Text>
-              <Text style={styles.infoValue}>{medication.refills_remaining}</Text>
-            </View>
-          )}
-        </View>
-      )}
+      {(() => {
+        // Check if any prescription field has a meaningful value
+        const hasRxNumber = medication.rx_number && medication.rx_number.trim() !== '';
+        const hasPharmacy = medication.pharmacy && medication.pharmacy.trim() !== '';
+        const hasQuantity = medication.original_quantity !== undefined && medication.original_quantity !== null;
+        const hasRefills = medication.refills_remaining !== undefined && medication.refills_remaining !== null;
+        
+        if (!hasRxNumber && !hasPharmacy && !hasQuantity && !hasRefills) {
+          return null;
+        }
+        
+        return (
+          <View style={styles.prescriptionInfo}>
+            <Text style={styles.prescriptionTitle}>{t.medicationsPrescriptionInfo || 'Prescription Information'}</Text>
+            {hasRxNumber && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>{t.medicationsRxNumber || 'Rx Number'}:</Text>
+                <Text style={styles.infoValue}>{medication.rx_number}</Text>
+              </View>
+            )}
+            {hasPharmacy && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>{t.medicationsPharmacy || 'Pharmacy'}:</Text>
+                <Text style={styles.infoValue}>{medication.pharmacy}</Text>
+              </View>
+            )}
+            {hasQuantity && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>{t.medicationsQuantity || 'Quantity'}:</Text>
+                <Text style={styles.infoValue}>{medication.original_quantity}</Text>
+              </View>
+            )}
+            {hasRefills && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>{t.medicationsRefillsRemaining || 'Refills Remaining'}:</Text>
+                <Text style={styles.infoValue}>{medication.refills_remaining}</Text>
+              </View>
+            )}
+          </View>
+        );
+      })()}
 
       {medication.instructions && (
         <View style={styles.instructionsContainer}>
@@ -298,8 +320,15 @@ export default function MedicationsScreen() {
           <Pill size={64} color={Colors.textLight} />
           <Text style={styles.emptyTitle}>{t.medicationsNoCurrentMedications || 'No Current Medications'}</Text>
           <Text style={styles.emptyDescription}>
-            {t.medicationsNoCurrentMedicationsDesc || "You don't have any active medications. Click the button above to add your first medication."}
+            {t.medicationsNoCurrentMedicationsDesc || "You don't have any active medications. Click the button below to add your first medication."}
           </Text>
+          <TouchableOpacity 
+            style={styles.emptyAddButton}
+            onPress={handleAddMedication}
+          >
+            <Plus size={20} color={Colors.background} />
+            <Text style={styles.emptyAddButtonText}>{t.addMedication || 'Add Medication'}</Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -359,16 +388,36 @@ export default function MedicationsScreen() {
     );
   };
 
+  // Determine if we should show the header add button (only when there are entries and not loading)
+  const hasEntries = !loadingCurrent && !loadingPrevious && (
+    activeTab === 'current' 
+      ? currentMeds.length > 0 
+      : previousMeds.length > 0
+  );
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t.medications || 'Medications'}</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={handleAddMedication}
+      <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} onOpen={() => setDrawerVisible(true)} />
+      <View style={styles.topHeader}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setDrawerVisible(true)}
         >
-          <Plus size={24} color={Colors.background} />
+          <Menu size={24} color={Colors.text} />
         </TouchableOpacity>
+        <Text style={styles.topHeaderTitle}>{t.medications || 'Medications'}</Text>
+        {hasEntries && (
+          <TouchableOpacity 
+            style={styles.topHeaderAddButton}
+            onPress={handleAddMedication}
+          >
+            <Plus size={20} color={Colors.background} />
+            <Text style={styles.topHeaderAddButtonText}>
+              {t.add || 'Add'}
+            </Text>
+          </TouchableOpacity>
+        )}
+        {!hasEntries && <View style={{ width: 40 }} />}
       </View>
 
       <TabView 
@@ -387,29 +436,52 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 60,
-    paddingBottom: 16,
+    paddingBottom: 12,
     backgroundColor: Colors.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  headerTitle: {
-    fontSize: 24,
+  menuButton: {
+    padding: 4,
+  },
+  topHeaderTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: Colors.text,
   },
-  addButton: {
-    backgroundColor: Colors.primary,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  topHeaderAddButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  topHeaderAddButtonText: {
+    color: Colors.background,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  addButtonText: {
+    color: Colors.background,
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   scrollView: {
     flex: 1,
@@ -571,5 +643,19 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     textAlign: 'center',
     marginBottom: 24,
+  },
+  emptyAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  emptyAddButtonText: {
+    color: Colors.background,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

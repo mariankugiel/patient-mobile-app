@@ -235,6 +235,19 @@ export interface Translations {
   medicationRemindersDesc: string;
   messages: string;
   messagesDesc: string;
+  salusoSupport: string;
+  aiAssistant: string;
+  typeMessage: string;
+  send: string;
+  noConversations: string;
+  noMessages: string;
+  typing: string;
+  messageSent: string;
+  failedToSend: string;
+  attachFile: string;
+  uploading: string;
+  startConversation: string;
+  noMessagesYet: string;
   healthRecommendations: string;
   healthRecommendationsDesc: string;
   
@@ -450,6 +463,7 @@ export interface Translations {
   addMeasurement: string;
   addMetricTitle: string;
   measurementType: string;
+  metrics: string;
   enterValue: string;
   notesOptional: string;
   addNotes: string;
@@ -556,6 +570,7 @@ export interface Translations {
   editExam: string;
   uploadExam: string;
   aiExamsDisclaimer: string;
+  aiDisclaimer: string;
   
   // Appointments page
   upcoming: string;
@@ -716,6 +731,92 @@ export interface Translations {
   afternoon: string;
   evening: string;
   night: string;
+  
+  // Lab document types
+  completeBloodCount: string;
+  comprehensiveMetabolicPanel: string;
+  lipidPanel: string;
+  hemoglobinA1C: string;
+  other: string;
+  
+  // Lab documents
+  labDocuments: string;
+  noDate: string;
+  noProvider: string;
+  deleteDocument: string;
+  deleteDocumentConfirm: string;
+  failedToDelete: string;
+  noLabDocumentsYet: string;
+  uploadLabDocument: string;
+  provider: string;
+  type: string;
+  file: string;
+  description: string;
+  optional: string;
+  selectDocumentType: string;
+  healthcareProviderName: string;
+  pdfFilesOnly: string;
+  addDescriptionPlaceholder: string;
+  analyzing: string;
+  uploadAndAnalyze: string;
+  uploadToHealthRecords: string;
+  viewExtractedResults: string;
+  metricsFound: string;
+  analysisResults: string;
+  rejectResults: string;
+  confirmResults: string;
+  value: string;
+  referenceRange: string;
+  section: string;
+  editHealthRecord: string;
+  metricName: string;
+  unit: string;
+  noMetricsFound: string;
+  noResultsToUpload: string;
+  duplicateFile: string;
+  duplicateFileMessage: string;
+  continue: string;
+  noUploadResult: string;
+  noResults: string;
+  noResultsMessage: string;
+  failedToAnalyze: string;
+    abnormal: string;
+    normal: string;
+    
+    // Medical exams
+    uploadMedicalExam: string;
+    examDetails: string;
+    imageType: string;
+    selectImageType: string;
+    bodyPart: string;
+    bodyPartPlaceholder: string;
+    imageDate: string;
+    findings: string;
+    selectFindings: string;
+    interpretation: string;
+    interpretationPlaceholder: string;
+    conclusions: string;
+    conclusionsPlaceholder: string;
+    doctorName: string;
+    doctorNamePlaceholder: string;
+    doctorNumber: string;
+    doctorNumberPlaceholder: string;
+    xRay: string;
+    ultrasound: string;
+    mri: string;
+    ctScan: string;
+    ecg: string;
+    others: string;
+    noFindings: string;
+    lowRiskFindings: string;
+    relevantFindings: string;
+    fileUploadedAnalyzed: string;
+    medicalImageSavedSuccess: string;
+    noMedicalExamsYet: string;
+    failedToLoadDocument: string;
+    documentDeleted: string;
+    loadingDocuments: string;
+    uploadExam: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -950,6 +1051,19 @@ export const translations: Record<Language, Translations> = {
     medicationRemindersDesc: 'Receba lembretes para tomar os seus medicamentos',
     messages: 'Mensagens',
     messagesDesc: 'Receba notificações de novas mensagens',
+    salusoSupport: 'Saluso Support',
+    aiAssistant: 'Assistente IA',
+    typeMessage: 'Escreva uma mensagem...',
+    send: 'Enviar',
+    noConversations: 'Nenhuma conversa ainda',
+    noMessages: 'Nenhuma mensagem ainda',
+    typing: 'a escrever...',
+    messageSent: 'Mensagem enviada',
+    failedToSend: 'Falha ao enviar mensagem',
+    attachFile: 'Anexar ficheiro',
+    uploading: 'A carregar...',
+    startConversation: 'Iniciar uma conversa com o Saluso Support',
+    noMessagesYet: 'Ainda não há mensagens',
     healthRecommendations: 'Recomendações de Saúde',
     healthRecommendationsDesc: 'Receba dicas e recomendações personalizadas',
     
@@ -1163,6 +1277,7 @@ export const translations: Record<Language, Translations> = {
     addMetric: 'Adicionar Métrica',
     uploadDocument: 'Carregar Documento',
     addMeasurement: 'Adicionar Medição',
+    metrics: 'Métricas',
     addActivity: 'Adicionar Atividade',
     nextVaccines: 'Próximas Vacinas',
     administeredVaccines: 'Vacinas Administradas',
@@ -1202,6 +1317,7 @@ export const translations: Record<Language, Translations> = {
     editExam: 'Editar',
     uploadExam: 'Carregar Exame',
     aiExamsDisclaimer: 'Os resumos de saúde gerados por IA têm um carácter meramente informativo e não substituem o aconselhamento, diagnóstico ou tratamento médico. Consulte sempre um profissional de saúde qualificado para obter aconselhamento médico personalizado.',
+    aiDisclaimer: 'Os resumos de saúde gerados por IA têm um carácter meramente informativo e não substituem o aconselhamento, diagnóstico ou tratamento médico. Consulte sempre um profissional de saúde qualificado para obter aconselhamento médico personalizado.',
     
     // Appointments page
     upcoming: 'Agendadas',
@@ -1362,6 +1478,92 @@ export const translations: Record<Language, Translations> = {
     afternoon: 'Tarde',
     evening: 'Fim de tarde',
     night: 'Noite',
+    
+    // Lab document types
+    completeBloodCount: 'Hemograma Completo',
+    comprehensiveMetabolicPanel: 'Painel Metabólico Completo',
+    lipidPanel: 'Painel de Lípidos',
+    hemoglobinA1C: 'Hemoglobina A1C',
+    other: 'Outro',
+    
+    // Lab documents
+    labDocuments: 'Documentos de Laboratório',
+    noDate: 'Sem data',
+    noProvider: 'Sem fornecedor',
+    deleteDocument: 'Eliminar Documento',
+    deleteDocumentConfirm: 'Tem a certeza que deseja eliminar este documento? Esta ação não pode ser desfeita.',
+    failedToDelete: 'Falha ao eliminar',
+    noLabDocumentsYet: 'Ainda não há documentos de laboratório',
+    uploadLabDocument: 'Carregar Documento de Laboratório',
+    provider: 'Fornecedor',
+    type: 'Tipo',
+    file: 'Ficheiro',
+    description: 'Descrição',
+    optional: 'opcional',
+    selectDocumentType: 'Selecionar Tipo de Documento',
+    healthcareProviderName: 'Nome do fornecedor de cuidados de saúde',
+    pdfFilesOnly: 'Apenas ficheiros PDF, máximo 10MB',
+    addDescriptionPlaceholder: 'Adicionar descrição ou observações',
+    analyzing: 'A analisar...',
+    uploadAndAnalyze: 'Carregar e Analisar',
+    uploadToHealthRecords: 'Carregar para Registos de Saúde',
+    viewExtractedResults: 'Ver Resultados Extraídos',
+    metricsFound: 'métricas encontradas',
+    analysisResults: 'Resultados da Análise',
+    rejectResults: 'Rejeitar Resultados',
+    confirmResults: 'Confirmar Resultados',
+    value: 'Valor',
+    referenceRange: 'Intervalo de Referência',
+    section: 'Secção',
+    editHealthRecord: 'Editar Registo de Saúde',
+    metricName: 'Nome da Métrica',
+    unit: 'Unidade',
+    noMetricsFound: 'Nenhuma métrica encontrada',
+    noResultsToUpload: 'Nenhum resultado para carregar',
+    duplicateFile: 'Ficheiro Duplicado',
+    duplicateFileMessage: 'Já existe um ficheiro com o mesmo nome. Deseja continuar?',
+    continue: 'Continuar',
+    noUploadResult: 'Resultado de carregamento não disponível',
+    noResults: 'Sem Resultados',
+    noResultsMessage: 'Não foram encontrados resultados de laboratório no documento. Por favor, verifique o ficheiro e tente novamente.',
+    failedToAnalyze: 'Falha ao analisar documento',
+    abnormal: 'Anormal',
+    normal: 'Normal',
+    
+    // Medical exams
+    uploadMedicalExam: 'Carregar Exame Médico',
+    examDetails: 'Detalhes do Exame',
+    imageType: 'Tipo de Imagem',
+    selectImageType: 'Selecionar Tipo de Imagem',
+    bodyPart: 'Parte do Corpo',
+    bodyPartPlaceholder: 'ex: Peito, Abdómen superior',
+    imageDate: 'Data da Imagem',
+    findings: 'Achados',
+    selectFindings: 'Selecionar Achados',
+    interpretation: 'Interpretação',
+    interpretationPlaceholder: 'Interpretação médica da imagem...',
+    conclusions: 'Conclusões',
+    conclusionsPlaceholder: 'Conclusões e achados...',
+    doctorName: 'Nome do Médico',
+    doctorNamePlaceholder: 'Nome do médico',
+    doctorNumber: 'Número do Médico',
+    doctorNumberPlaceholder: 'Número de licença do médico',
+    xRay: 'Raio-X',
+    ultrasound: 'Ecografia',
+    mri: 'Ressonância Magnética',
+    ctScan: 'TAC',
+    ecg: 'ECG',
+    others: 'Outros',
+    noFindings: 'Sem Achados',
+    lowRiskFindings: 'Achados de Baixo Risco',
+    relevantFindings: 'Achados Relevantes',
+    fileUploadedAnalyzed: 'Ficheiro carregado e analisado com sucesso!',
+    medicalImageSavedSuccess: 'Exame médico guardado com sucesso!',
+    noMedicalExamsYet: 'Ainda não há exames médicos',
+    failedToLoadDocument: 'Falha ao carregar documento',
+    documentDeleted: 'Documento eliminado com sucesso',
+    loadingDocuments: 'A carregar exames...',
+    uploadExam: 'Carregar Exame',
   },
   'es-ES': {
     // Tab names
@@ -1593,6 +1795,19 @@ export const translations: Record<Language, Translations> = {
     medicationRemindersDesc: 'Reciba recordatorios para tomar sus medicamentos',
     messages: 'Mensajes',
     messagesDesc: 'Reciba notificaciones de nuevos mensajes',
+    salusoSupport: 'Saluso Support',
+    aiAssistant: 'Asistente IA',
+    typeMessage: 'Escribe un mensaje...',
+    send: 'Enviar',
+    noConversations: 'No hay conversaciones aún',
+    noMessages: 'No hay mensajes aún',
+    typing: 'escribiendo...',
+    messageSent: 'Mensaje enviado',
+    failedToSend: 'Error al enviar mensaje',
+    attachFile: 'Adjuntar archivo',
+    uploading: 'Subiendo...',
+    startConversation: 'Iniciar una conversación con Saluso Support',
+    noMessagesYet: 'Aún no hay mensajes',
     healthRecommendations: 'Recomendaciones de Salud',
     healthRecommendationsDesc: 'Reciba consejos y recomendaciones personalizadas',
     
@@ -1806,6 +2021,7 @@ export const translations: Record<Language, Translations> = {
     addMetric: 'Añadir Métrica',
     uploadDocument: 'Cargar Documento',
     addMeasurement: 'Añadir Medición',
+    metrics: 'Métricas',
     addMetricTitle: 'Añadir Medición',
     measurementType: 'Tipo de Medición',
     enterValue: 'Introduzca el valor',
@@ -1914,6 +2130,7 @@ export const translations: Record<Language, Translations> = {
     editExam: 'Editar',
     uploadExam: 'Cargar Examen',
     aiExamsDisclaimer: 'Los resúmenes de salud generados por IA tienen un carácter meramente informativo y no sustituyen el asesoramiento, diagnóstico o tratamiento médico. Consulte siempre a un profesional de salud cualificado para obtener asesoramiento médico personalizado.',
+    aiDisclaimer: 'Los resúmenes de salud generados por IA tienen un carácter meramente informativo y no sustituyen el asesoramiento, diagnóstico o tratamiento médico. Consulte siempre a un profesional de salud cualificado para obtener asesoramiento médico personalizado.',
     
     // Appointments page
     upcoming: 'Próximas',
@@ -2074,6 +2291,92 @@ export const translations: Record<Language, Translations> = {
     afternoon: 'Tarde',
     evening: 'Final de la tarde',
     night: 'Noche',
+    
+    // Lab document types
+    completeBloodCount: 'Hemograma Completo',
+    comprehensiveMetabolicPanel: 'Panel Metabólico Completo',
+    lipidPanel: 'Panel de Lípidos',
+    hemoglobinA1C: 'Hemoglobina A1C',
+    other: 'Otro',
+    
+    // Lab documents
+    labDocuments: 'Documentos de Laboratorio',
+    noDate: 'Sin fecha',
+    noProvider: 'Sin proveedor',
+    deleteDocument: 'Eliminar Documento',
+    deleteDocumentConfirm: '¿Está seguro de que desea eliminar este documento? Esta acción no se puede deshacer.',
+    failedToDelete: 'Error al eliminar',
+    noLabDocumentsYet: 'Aún no hay documentos de laboratorio',
+    uploadLabDocument: 'Subir Documento de Laboratorio',
+    provider: 'Proveedor',
+    type: 'Tipo',
+    file: 'Archivo',
+    description: 'Descripción',
+    optional: 'opcional',
+    selectDocumentType: 'Seleccionar Tipo de Documento',
+    healthcareProviderName: 'Nombre del proveedor de atención médica',
+    pdfFilesOnly: 'Solo archivos PDF, máximo 10MB',
+    addDescriptionPlaceholder: 'Agregar descripción u observaciones',
+    analyzing: 'Analizando...',
+    uploadAndAnalyze: 'Subir y Analizar',
+    uploadToHealthRecords: 'Subir a Registros de Salud',
+    viewExtractedResults: 'Ver Resultados Extraídos',
+    metricsFound: 'métricas encontradas',
+    analysisResults: 'Resultados del Análisis',
+    rejectResults: 'Rechazar Resultados',
+    confirmResults: 'Confirmar Resultados',
+    value: 'Valor',
+    referenceRange: 'Rango de Referencia',
+    section: 'Sección',
+    editHealthRecord: 'Editar Registro de Salud',
+    metricName: 'Nombre de la Métrica',
+    unit: 'Unidad',
+    noMetricsFound: 'No se encontraron métricas',
+    noResultsToUpload: 'No hay resultados para subir',
+    duplicateFile: 'Archivo Duplicado',
+    duplicateFileMessage: 'Ya existe un archivo con el mismo nombre. ¿Desea continuar?',
+    continue: 'Continuar',
+    noUploadResult: 'Resultado de carga no disponible',
+    noResults: 'Sin Resultados',
+    noResultsMessage: 'No se encontraron resultados de laboratorio en el documento. Por favor, verifique el archivo e intente nuevamente.',
+    failedToAnalyze: 'Error al analizar documento',
+    abnormal: 'Anormal',
+    normal: 'Normal',
+    
+    // Medical exams
+    uploadMedicalExam: 'Subir Examen Médico',
+    examDetails: 'Detalles del Examen',
+    imageType: 'Tipo de Imagen',
+    selectImageType: 'Seleccionar Tipo de Imagen',
+    bodyPart: 'Parte del Cuerpo',
+    bodyPartPlaceholder: 'ej: Pecho, Abdomen superior',
+    imageDate: 'Fecha de la Imagen',
+    findings: 'Hallazgos',
+    selectFindings: 'Seleccionar Hallazgos',
+    interpretation: 'Interpretación',
+    interpretationPlaceholder: 'Interpretación médica de la imagen...',
+    conclusions: 'Conclusiones',
+    conclusionsPlaceholder: 'Conclusiones y hallazgos...',
+    doctorName: 'Nombre del Médico',
+    doctorNamePlaceholder: 'Nombre del médico',
+    doctorNumber: 'Número del Médico',
+    doctorNumberPlaceholder: 'Número de licencia del médico',
+    xRay: 'Rayos X',
+    ultrasound: 'Ultrasonido',
+    mri: 'Resonancia Magnética',
+    ctScan: 'TAC',
+    ecg: 'ECG',
+    others: 'Otros',
+    noFindings: 'Sin Hallazgos',
+    lowRiskFindings: 'Hallazgos de Bajo Riesgo',
+    relevantFindings: 'Hallazgos Relevantes',
+    fileUploadedAnalyzed: '¡Archivo subido y analizado con éxito!',
+    medicalImageSavedSuccess: '¡Examen médico guardado con éxito!',
+    noMedicalExamsYet: 'Aún no hay exámenes médicos',
+    failedToLoadDocument: 'Error al cargar documento',
+    documentDeleted: 'Documento eliminado con éxito',
+    loadingDocuments: 'Cargando exámenes...',
+    uploadExam: 'Subir Examen',
   },
   'en-US': {
     // Tab names
@@ -2306,6 +2609,19 @@ export const translations: Record<Language, Translations> = {
     medicationRemindersDesc: 'Receive reminders to take your medications',
     messages: 'Messages',
     messagesDesc: 'Receive notifications for new messages',
+    salusoSupport: 'Saluso Support',
+    aiAssistant: 'AI Assistant',
+    typeMessage: 'Type a message...',
+    send: 'Send',
+    noConversations: 'No conversations yet',
+    noMessages: 'No messages yet',
+    typing: 'typing...',
+    messageSent: 'Message sent',
+    failedToSend: 'Failed to send message',
+    attachFile: 'Attach file',
+    uploading: 'Uploading...',
+    startConversation: 'Start a conversation with Saluso Support',
+    noMessagesYet: 'No messages yet',
     healthRecommendations: 'Health Recommendations',
     healthRecommendationsDesc: 'Receive personalized tips and recommendations',
     
@@ -2521,6 +2837,7 @@ export const translations: Record<Language, Translations> = {
     addMeasurement: 'Add Measurement',
     addMetricTitle: 'Add Measurement',
     measurementType: 'Measurement Type',
+    metrics: 'Metrics',
     enterValue: 'Enter value',
     notesOptional: 'Notes (optional)',
     addNotes: 'Add notes or observations',
@@ -2627,6 +2944,7 @@ export const translations: Record<Language, Translations> = {
     editExam: 'Edit',
     uploadExam: 'Upload Exam',
     aiExamsDisclaimer: 'AI-generated health summaries are for informational purposes only and do not replace medical advice, diagnosis, or treatment. Always consult a qualified healthcare professional for personalized medical advice.',
+    aiDisclaimer: 'AI-generated health summaries are for informational purposes only and do not replace medical advice, diagnosis, or treatment. Always consult a qualified healthcare professional for personalized medical advice.',
     
     // Appointments page
     upcoming: 'Upcoming',
@@ -2787,5 +3105,91 @@ export const translations: Record<Language, Translations> = {
     afternoon: 'Afternoon',
     evening: 'Evening',
     night: 'Night',
+    
+    // Lab document types
+    completeBloodCount: 'Complete Blood Count',
+    comprehensiveMetabolicPanel: 'Comprehensive Metabolic Panel',
+    lipidPanel: 'Lipid Panel',
+    hemoglobinA1C: 'Hemoglobin A1C',
+    other: 'Other',
+    
+    // Lab documents
+    labDocuments: 'Lab Documents',
+    noDate: 'No date',
+    noProvider: 'No provider',
+    deleteDocument: 'Delete Document',
+    deleteDocumentConfirm: 'Are you sure you want to delete this document? This action cannot be undone.',
+    failedToDelete: 'Failed to delete',
+    noLabDocumentsYet: 'No lab documents yet',
+    uploadLabDocument: 'Upload Lab Document',
+    provider: 'Provider',
+    type: 'Type',
+    file: 'File',
+    description: 'Description',
+    optional: 'optional',
+    selectDocumentType: 'Select Document Type',
+    healthcareProviderName: 'Healthcare provider name',
+    pdfFilesOnly: 'PDF files only, max 10MB',
+    addDescriptionPlaceholder: 'Add description or observations',
+    analyzing: 'Analyzing...',
+    uploadAndAnalyze: 'Upload & Analyze',
+    uploadToHealthRecords: 'Upload to Health Records',
+    viewExtractedResults: 'View Extracted Results',
+    metricsFound: 'metrics found',
+    analysisResults: 'Analysis Results',
+    rejectResults: 'Reject Results',
+    confirmResults: 'Confirm Results',
+    value: 'Value',
+    referenceRange: 'Reference Range',
+    section: 'Section',
+    editHealthRecord: 'Edit Health Record Entry',
+    metricName: 'Metric Name',
+    unit: 'Unit',
+    noMetricsFound: 'No metrics found',
+    noResultsToUpload: 'No results to upload',
+    duplicateFile: 'Duplicate File',
+    duplicateFileMessage: 'A file with the same name already exists. Do you want to continue?',
+    continue: 'Continue',
+    noUploadResult: 'Upload result not available',
+    noResults: 'No Results',
+    noResultsMessage: 'No lab results were found in the document. Please check the file and try again.',
+    failedToAnalyze: 'Failed to analyze document',
+    abnormal: 'Abnormal',
+    normal: 'Normal',
+    
+    // Medical exams
+    uploadMedicalExam: 'Upload Medical Exam',
+    examDetails: 'Exam Details',
+    imageType: 'Image Type',
+    selectImageType: 'Select Image Type',
+    bodyPart: 'Body Part',
+    bodyPartPlaceholder: 'e.g., Chest, Upper abdomen',
+    imageDate: 'Image Date',
+    findings: 'Findings',
+    selectFindings: 'Select Findings',
+    interpretation: 'Interpretation',
+    interpretationPlaceholder: 'Medical interpretation of the image...',
+    conclusions: 'Conclusions',
+    conclusionsPlaceholder: 'Conclusions and findings...',
+    doctorName: 'Doctor Name',
+    doctorNamePlaceholder: "Doctor's name",
+    doctorNumber: 'Doctor Number',
+    doctorNumberPlaceholder: "Doctor's license number",
+    xRay: 'X-Ray',
+    ultrasound: 'Ultrasound',
+    mri: 'MRI',
+    ctScan: 'CT Scan',
+    ecg: 'ECG',
+    others: 'Others',
+    noFindings: 'No Findings',
+    lowRiskFindings: 'Low Risk Findings',
+    relevantFindings: 'Relevant Findings',
+    fileUploadedAnalyzed: 'File uploaded and analyzed successfully!',
+    medicalImageSavedSuccess: 'Medical exam saved successfully!',
+    noMedicalExamsYet: 'No medical exams yet',
+    failedToLoadDocument: 'Failed to load document',
+    documentDeleted: 'Document deleted successfully',
+    loadingDocuments: 'Loading exams...',
+    uploadExam: 'Upload Exam',
   },
 };

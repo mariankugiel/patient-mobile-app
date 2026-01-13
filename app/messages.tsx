@@ -1,470 +1,383 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Image, SafeAreaView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, Send, Paperclip, Mic } from 'lucide-react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl
+} from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { ArrowLeft, Menu, Search } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { messages } from '@/constants/patient';
-
-interface Message {
-  id: number;
-  sender: string;
-  content: string;
-  date: string;
-  time: string;
-  read: boolean;
-  isUser: boolean;
-  senderImage?: string;
-}
-
-interface Contact {
-  id: string;
-  name: string;
-  lastMessage: string;
-  time: string;
-  date: string;
-  unreadCount: number;
-  image: string | null;
-  isUser: boolean;
-}
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useMessages } from '@/hooks/useMessages';
+import { useAIChat } from '@/hooks/useAIChat';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import SideDrawer from '@/components/SideDrawer';
+import BotConversationItem from '@/components/messages/BotConversationItem';
+import ConversationItem from '@/components/messages/ConversationItem';
+import MessageBubble from '@/components/messages/MessageBubble';
+import MessageInput from '@/components/messages/MessageInput';
+import type { Conversation, BotConversation, Message, SALUSO_SUPPORT_CONVERSATION_ID } from '@/types/messages';
+import { SALUSO_SUPPORT_CONVERSATION_ID as BOT_ID } from '@/types/messages';
 
 export default function MessagesScreen() {
   const router = useRouter();
-  const [newMessage, setNewMessage] = useState('');
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const { t } = useLanguage();
+  const { profile } = useAuthStore();
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
   
-  // Group messages by sender
-  const groupedMessages: Record<string, Message[]> = {};
-  
-  messages.forEach((message: Message) => {
-    const senderId = message.sender;
-    if (!groupedMessages[senderId]) {
-      groupedMessages[senderId] = [];
-    }
-    groupedMessages[senderId].push(message);
-  });
-  
-  // Get unique contacts
-  const contacts: Contact[] = Object.keys(groupedMessages).map(sender => {
-    const messagesForSender = groupedMessages[sender];
-    const lastMessage = messagesForSender[messagesForSender.length - 1];
-    const unreadCount = messagesForSender.filter((m: Message) => !m.read && !m.isUser).length;
-    
-    return {
-      id: sender,
-      name: sender,
-      lastMessage: lastMessage.content,
-      time: lastMessage.time,
-      date: lastMessage.date,
-      unreadCount,
-      image: messagesForSender[0].senderImage || null,
-      isUser: messagesForSender[0].isUser || false
-    };
-  }).filter(contact => !contact.isUser);
+  const patientId = profile?.id ? Number(profile.id) : undefined;
+  const {
+    conversations,
+    botConversation,
+    selectedConversation,
+    messages,
+    unreadCount,
+    loading,
+    loadingConversations,
+    loadingMessages,
+    sendingMessage,
+    error,
+    selectConversation,
+    sendMessage,
+    uploadFile,
+    markAsRead,
+    refreshConversations,
+    loadMoreMessages,
+    handleMedicationAction,
+    handleAppointmentAction,
+  } = useMessages(patientId);
 
-  const renderContactItem = ({ item }: { item: Contact }) => {
-    const isSelected = selectedContact && selectedContact.id === item.id;
-    
+  const {
+    messages: aiMessages,
+    loading: aiLoading,
+    error: aiError,
+    sendMessage: sendAIMessage,
+    clearMessages: clearAIMessages,
+  } = useAIChat();
+
+  // Determine if we're in bot conversation
+  const isBotConversation = selectedConversation?.id === BOT_ID;
+  const displayMessages = isBotConversation ? aiMessages : messages;
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (displayMessages.length > 0 && flatListRef.current) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [displayMessages.length]);
+
+  // Mark messages as read when conversation is selected
+  useEffect(() => {
+    if (selectedConversation && !isBotConversation) {
+      markAsRead();
+    }
+  }, [selectedConversation, isBotConversation, markAsRead]);
+
+  // Refresh on focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshConversations();
+    }, [refreshConversations])
+  );
+
+  const handleBack = () => {
+    if (selectedConversation) {
+      if (isBotConversation) {
+        clearAIMessages();
+      }
+      selectConversation('__clear__');
+    } else {
+      router.back();
+    }
+  };
+
+  const handleSelectConversation = (conversationId: string) => {
+    if (conversationId === BOT_ID) {
+      selectConversation(BOT_ID);
+    } else {
+      selectConversation(conversationId);
+    }
+  };
+
+  const handleSendMessage = async (text: string) => {
+    try {
+      if (isBotConversation) {
+        await sendAIMessage(text);
+      } else {
+        await sendMessage(text, 'general');
+      }
+    } catch (err: any) {
+      Alert.alert(t.failedToSend || 'Failed to send', err.message || 'An error occurred');
+    }
+  };
+
+  const handleAttachFile = async (file: { uri: string; name: string; type: string; size?: number }) => {
+    try {
+      if (isBotConversation) {
+        Alert.alert('Info', 'File attachments are not supported for AI chat');
+        return;
+      }
+      const attachment = await uploadFile(file);
+      // For now, just send a message with the file name
+      // In a full implementation, you'd send the attachment with the message
+      await sendMessage(`📎 ${file.name}`, 'general', [attachment]);
+    } catch (err: any) {
+      Alert.alert('Upload Failed', err.message || 'Failed to upload file');
+    }
+  };
+
+  const renderConversationList = () => {
+    if (loadingConversations) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>{t.loading || 'Loading...'}</Text>
+        </View>
+      );
+    }
+
+    if (conversations.length === 0 && !botConversation) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyText}>{t.noConversations || 'No conversations yet'}</Text>
+        </View>
+      );
+    }
+
     return (
-      <TouchableOpacity 
-        style={[styles.contactItem, isSelected && styles.selectedContact]}
-        onPress={() => setSelectedContact(item)}
-      >
-        <View style={styles.contactImageContainer}>
-          {item.image ? (
-            <Image source={{ uri: item.image }} style={styles.contactImage} />
-          ) : (
-            <View style={[styles.contactInitial, { backgroundColor: Colors.primary }]}>
-              <Text style={styles.initialText}>{item.name.charAt(0)}</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.contactInfo}>
-          <View style={styles.contactHeader}>
-            <Text style={styles.contactName}>{item.name}</Text>
-            <Text style={styles.messageTime}>{item.time}</Text>
-          </View>
-          <View style={styles.lastMessageContainer}>
-            <Text 
-              style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadMessage]} 
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {item.lastMessage}
-            </Text>
-            {item.unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadCount}>{item.unreadCount}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </TouchableOpacity>
+      <FlatList
+        data={conversations}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          botConversation ? (
+            <BotConversationItem
+              conversation={botConversation}
+              onPress={() => handleSelectConversation(BOT_ID)}
+              unreadCount={0}
+            />
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <ConversationItem
+            conversation={item}
+            onPress={() => handleSelectConversation(item.id)}
+          />
+        )}
+        refreshControl={
+          <RefreshControl
+            refreshing={loadingConversations}
+            onRefresh={refreshConversations}
+            colors={[Colors.primary]}
+          />
+        }
+      />
     );
   };
 
-  const renderMessageItem = ({ item }: { item: Message }) => {
-    const messageDate = new Date(item.date);
-    const formattedDate = messageDate.toLocaleDateString('pt-PT');
-    
-    return (
-      <View style={[
-        styles.messageItem, 
-        item.isUser ? styles.userMessage : styles.contactMessage
-      ]}>
-        {!item.isUser && (
-          <View style={styles.messageSenderImage}>
-            {item.senderImage ? (
-              <Image source={{ uri: item.senderImage }} style={styles.senderImage} />
-            ) : (
-              <View style={[styles.senderInitial, { backgroundColor: Colors.primary }]}>
-                <Text style={styles.initialText}>{item.sender.charAt(0)}</Text>
-              </View>
-            )}
-          </View>
-        )}
-        <View style={[
-          styles.messageBubble,
-          item.isUser ? styles.userBubble : styles.contactBubble
-        ]}>
-          <Text style={[
-            styles.messageText,
-            item.isUser ? styles.userMessageText : styles.contactMessageText
-          ]}>
-            {item.content}
-          </Text>
-          <Text style={[
-            styles.messageTimeInBubble,
-            item.isUser ? styles.userMessageTime : styles.contactMessageTime
-          ]}>
-            {item.time}
+  const renderChatView = () => {
+    if (loadingMessages && displayMessages.length === 0) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>{t.loading || 'Loading...'}</Text>
+        </View>
+      );
+    }
+
+    if (displayMessages.length === 0) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyText}>
+            {isBotConversation 
+              ? (t.startConversation || 'Start a conversation with Saluso Support')
+              : (t.noMessagesYet || 'No messages yet')
+            }
           </Text>
         </View>
-      </View>
+      );
+    }
+
+    const currentUserId = profile?.id ? Number(profile.id) : 0;
+
+    return (
+      <FlatList
+        ref={flatListRef}
+        data={displayMessages}
+        keyExtractor={(item) => {
+          if ('id' in item) {
+            return item.id;
+          }
+          return `msg-${item.id}`;
+        }}
+        renderItem={({ item }) => {
+          if (isBotConversation) {
+            // AI chat messages
+            const aiMessage = item as any;
+            const isUser = aiMessage.role === 'user';
+            return (
+              <MessageBubble
+                message={{
+                  id: aiMessage.id,
+                  conversation_id: BOT_ID,
+                  sender_id: isUser ? currentUserId : 0,
+                  content: aiMessage.content,
+                  message_type: 'ai_chat',
+                  priority: 'normal',
+                  status: 'read',
+                  created_at: aiMessage.timestamp,
+                } as Message}
+                isUser={isUser}
+              />
+            );
+          } else {
+            // Regular messages
+            const message = item as Message;
+            const isUser = message.sender_id === currentUserId;
+            const conversation = selectedConversation as Conversation;
+            return (
+              <MessageBubble
+                message={message}
+                isUser={isUser}
+                showAvatar={!isUser}
+                avatar={conversation?.contact_avatar}
+                initials={conversation?.contact_initials}
+              />
+            );
+          }
+        }}
+        contentContainerStyle={styles.messagesList}
+        onEndReached={loadMoreMessages}
+        onEndReachedThreshold={0.5}
+        inverted={false}
+      />
     );
+  };
+
+  const getHeaderTitle = () => {
+    if (selectedConversation) {
+      if (isBotConversation) {
+        return t.salusoSupport || 'Saluso Support';
+      }
+      return (selectedConversation as Conversation).contact_name || t.messages || 'Messages';
+    }
+    return t.messages || 'Messages';
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
+    <View style={styles.container}>
+      <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} onOpen={() => setDrawerVisible(true)} />
+      
+      <View style={styles.topHeader}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={selectedConversation ? handleBack : () => setDrawerVisible(true)}
+        >
+          {selectedConversation ? (
             <ArrowLeft size={24} color={Colors.text} />
+          ) : (
+            <Menu size={24} color={Colors.text} />
+          )}
+        </TouchableOpacity>
+        <Text style={styles.topHeaderTitle}>{getHeaderTitle()}</Text>
+        {!selectedConversation && (
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={() => setShowSearch(!showSearch)}
+          >
+            <Search size={20} color={Colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mensagens</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        {!selectedContact ? (
-          <FlatList
-            data={contacts}
-            renderItem={renderContactItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.contactsList}
-          />
-        ) : (
-          <View style={styles.chatContainer}>
-            <View style={styles.chatHeader}>
-              <TouchableOpacity 
-                style={styles.backToContacts}
-                onPress={() => setSelectedContact(null)}
-              >
-                <ArrowLeft size={20} color={Colors.text} />
-              </TouchableOpacity>
-              <View style={styles.chatHeaderInfo}>
-                {selectedContact.image ? (
-                  <Image source={{ uri: selectedContact.image }} style={styles.chatHeaderImage} />
-                ) : (
-                  <View style={[styles.chatHeaderInitial, { backgroundColor: Colors.primary }]}>
-                    <Text style={styles.initialText}>{selectedContact.name.charAt(0)}</Text>
-                  </View>
-                )}
-                <Text style={styles.chatHeaderName}>{selectedContact.name}</Text>
-              </View>
-            </View>
-            
-            <FlatList
-              data={groupedMessages[selectedContact.id]}
-              renderItem={renderMessageItem}
-              keyExtractor={(item) => item.id.toString()}
-              contentContainerStyle={styles.messagesList}
-              inverted={false}
-            />
-            
-            <View style={styles.inputContainer}>
-              <TouchableOpacity style={styles.attachButton}>
-                <Paperclip size={20} color={Colors.textLight} />
-              </TouchableOpacity>
-              <TextInput
-                style={styles.input}
-                placeholder="Escreva uma mensagem..."
-                value={newMessage}
-                onChangeText={setNewMessage}
-                multiline
-              />
-              {newMessage.trim() ? (
-                <TouchableOpacity 
-                  style={styles.sendButton}
-                  onPress={() => {
-                    // In a real app, you would send the message here
-                    setNewMessage('');
-                  }}
-                >
-                  <Send size={20} color={Colors.background} />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={styles.micButton}>
-                  <Mic size={20} color={Colors.textLight} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
         )}
+        {!selectedConversation && <View style={{ width: 40 }} />}
       </View>
-    </SafeAreaView>
+
+      <KeyboardAvoidingView
+        style={styles.content}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        {selectedConversation ? (
+          <>
+            <View style={styles.chatContainer}>
+              {renderChatView()}
+            </View>
+            <MessageInput
+              onSend={handleSendMessage}
+              onAttach={handleAttachFile}
+              placeholder={t.typeMessage || 'Type a message...'}
+              disabled={loading || sendingMessage || aiLoading}
+              sending={sendingMessage || aiLoading}
+            />
+          </>
+        ) : (
+          renderConversationList()
+        )}
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: Colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.text,
-  },
-  contactsList: {
-    padding: 16,
-  },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    backgroundColor: Colors.background,
   },
-  selectedContact: {
-    backgroundColor: Colors.secondary,
+  menuButton: {
+    padding: 4,
   },
-  contactImageContainer: {
-    marginRight: 12,
-  },
-  contactImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-  },
-  contactInitial: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  initialText: {
-    color: Colors.background,
+  topHeaderTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  contactInfo: {
-    flex: 1,
-  },
-  contactHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  contactName: {
-    fontSize: 16,
-    fontWeight: 'bold',
     color: Colors.text,
-  },
-  messageTime: {
-    fontSize: 12,
-    color: Colors.textLighter,
-  },
-  lastMessageContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  lastMessage: {
     flex: 1,
-    fontSize: 14,
-    color: Colors.textLight,
+    textAlign: 'center',
   },
-  unreadMessage: {
-    fontWeight: 'bold',
-    color: Colors.text,
+  searchButton: {
+    padding: 4,
   },
-  unreadBadge: {
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  unreadCount: {
-    color: Colors.background,
-    fontSize: 12,
-    fontWeight: 'bold',
+  content: {
+    flex: 1,
   },
   chatContainer: {
     flex: 1,
   },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backToContacts: {
-    marginRight: 12,
-  },
-  chatHeaderInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  chatHeaderImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  chatHeaderInitial: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  centerContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    padding: 20,
   },
-  chatHeaderName: {
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textLight,
+  },
+  emptyText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.text,
+    color: Colors.textLight,
+    textAlign: 'center',
   },
   messagesList: {
     padding: 16,
-  },
-  messageItem: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    maxWidth: '80%',
-  },
-  userMessage: {
-    alignSelf: 'flex-end',
-    justifyContent: 'flex-end',
-  },
-  contactMessage: {
-    alignSelf: 'flex-start',
-  },
-  messageSenderImage: {
-    marginRight: 8,
-    alignSelf: 'flex-end',
-  },
-  senderImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-  },
-  senderInitial: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  messageBubble: {
-    borderRadius: 16,
-    padding: 12,
-    minWidth: 80,
-  },
-  userBubble: {
-    backgroundColor: Colors.primary,
-    borderBottomRightRadius: 4,
-  },
-  contactBubble: {
-    backgroundColor: Colors.secondary,
-    borderBottomLeftRadius: 4,
-  },
-  messageText: {
-    fontSize: 14,
-    marginBottom: 4,
-    flexWrap: 'wrap',
-  },
-  userMessageText: {
-    color: Colors.background,
-  },
-  contactMessageText: {
-    color: Colors.text,
-  },
-  messageTimeInBubble: {
-    fontSize: 10,
-    alignSelf: 'flex-end',
-  },
-  userMessageTime: {
-    color: Colors.background,
-    opacity: 0.8,
-  },
-  contactMessageTime: {
-    color: Colors.textLighter,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.background,
-  },
-  attachButton: {
-    padding: 8,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: Colors.secondary,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    maxHeight: 100,
-    marginHorizontal: 8,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  micButton: {
-    padding: 8,
   },
 });
