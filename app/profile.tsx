@@ -15,6 +15,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useEmergency } from '@/hooks/useEmergency';
+import { PermissionsApiService } from '@/lib/api/permissions-api';
 import { useNotifications } from '@/hooks/useNotifications';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useThryveIntegration } from '@/hooks/useThryveIntegration';
@@ -57,7 +58,9 @@ type NotificationSetting = {
 };
 
 type Permission = {
-  id: number;
+  id: string;
+  contactId?: string;
+  contactEmail?: string;
   name: string;
   role: string;
   specialty: string;
@@ -73,26 +76,8 @@ const DEFAULT_HEALTH_PRO_IMAGE =
 const DEFAULT_FAMILY_IMAGE =
   'https://images.unsplash.com/photo-1566492031773-4f4e44671857?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60';
 
+// Backend handles invitation email; no client mailto
 const INVITE_LINK = 'https://patient.saluso.app';
-
-const sendInviteEmail = async (email: string, fullName: string) => {
-  if (!email) return;
-  const subject = encodeURIComponent('You are invited to access Saluso');
-  const body = encodeURIComponent(
-    `Hi ${fullName || ''},\n\nYou have been granted access to health information on Saluso. Please join using this link:\n${INVITE_LINK}\n\nThank you.`
-  );
-  const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
-  try {
-    const canOpen = await Linking.canOpenURL(mailtoUrl);
-    if (canOpen) {
-      await Linking.openURL(mailtoUrl);
-    } else {
-      console.warn('Cannot open mail client for invite', mailtoUrl);
-    }
-  } catch (error) {
-    console.warn('Failed to launch mail client for invite', error);
-  }
-};
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -140,15 +125,28 @@ export default function ProfileScreen() {
   // Map backend permissions to UI format
   const [currentPermissions, setCurrentPermissions] = useState<Permission[]>([]);
   const [revokedPermissions, setRevokedPermissions] = useState<Permission[]>([]);
+
+  const formatDateSafe = (value: string | null | undefined) => {
+    if (!value) return '';
+    const date = new Date(value);
+    return isNaN(date.getTime())
+      ? ''
+      : date.toLocaleDateString(
+          language === 'pt-PT' ? 'pt-PT' : language === 'es-ES' ? 'es-ES' : 'en-US'
+        );
+  };
   
   // Update permissions when sharedAccess loads
   React.useEffect(() => {
     if (!sharedAccess) return;
 
     const healthProfessionals = (sharedAccess.health_professionals || []).map((hp, index) => ({
-      id: index + 1,
+      id: hp.id || `hp-${index + 1}`,
+      contactId: hp.id,
+      contactEmail: hp.profile_email,
       name: hp.profile_fullname || 'Unknown',
-      role: hp.permissions_contact_type || 'Professional',
+      // default to professional so it always passes the filter
+      role: hp.permissions_contact_type || 'professional',
       specialty: hp.permissions_relationship || '',
       accessLevel: hp.accessLevel || 'Parcial',
       grantedDate: hp.lastAccessed || new Date().toISOString(),
@@ -157,9 +155,12 @@ export default function ProfileScreen() {
     }));
     
     const familyFriends = (sharedAccess.family_friends || []).map((ff, index) => ({
-      id: healthProfessionals.length + index + 1,
+      id: ff.id || `ff-${healthProfessionals.length + index + 1}`,
+      contactId: ff.id,
+      contactEmail: ff.profile_email,
       name: ff.profile_fullname || 'Unknown',
-      role: ff.permissions_contact_type || 'Familiar',
+      // default to personal/family so it passes the family filter
+      role: ff.permissions_contact_type || 'personal',
       specialty: '',
       accessLevel: ff.accessLevel || 'Limitado',
       grantedDate: ff.lastAccessed || new Date().toISOString(),
@@ -202,11 +203,62 @@ export default function ProfileScreen() {
   const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
   const [twoFactorModalVisible, setTwoFactorModalVisible] = useState(false);
   const [editEmergencyModalVisible, setEditEmergencyModalVisible] = useState(false);
-  const [addAccessModalVisible, setAddAccessModalVisible] = useState(false);
-  const [addContactModalVisible, setAddContactModalVisible] = useState(false);
-  const [editingContact, setEditingContact] = useState<any>(null);
+const [addAccessModalVisible, setAddAccessModalVisible] = useState(false);
+const [addContactModalVisible, setAddContactModalVisible] = useState(false);
+const [editingContact, setEditingContact] = useState<any>(null); // Emergency contacts
+const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
+const [editInitialInput, setEditInitialInput] = useState<AddAccessInput | null>(null);
   
-  const handleRevokePermission = (permissionId: number) => {
+  const removeFromSharedAccess = async (permission: Permission) => {
+    const currentShared = sharedAccess || {};
+    const filterOut = (list?: any[]) =>
+      (list || []).filter(
+        (c) =>
+          c.id !== permission.contactId &&
+          c.profile_email?.toLowerCase() !== permission.contactEmail?.toLowerCase()
+      );
+
+    // Remove from both lists to handle roles like doctor/hospital/personal consistently
+    const nextShared = {
+      ...currentShared,
+      health_professionals: filterOut(currentShared.health_professionals),
+      family_friends: filterOut(currentShared.family_friends),
+    };
+
+    try {
+      await updateSharedAccess(nextShared);
+    } catch (err) {
+      console.warn('[permissions] failed to persist revoke', err);
+    }
+  };
+
+  const handleDeletePermission = (permissionId: string, fromRevoked = false) => {
+    const list = fromRevoked ? revokedPermissions : currentPermissions;
+    const permission = list.find(p => p.id === permissionId);
+    if (!permission) return;
+    Alert.alert(
+      t.delete || 'Delete',
+      'Are you sure you want to permanently remove this access?',
+      [
+        { text: t.cancel, style: 'cancel' },
+        {
+          text: t.delete || 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (fromRevoked) {
+              setRevokedPermissions(revokedPermissions.filter(p => p.id !== permissionId));
+            } else {
+              setCurrentPermissions(currentPermissions.filter(p => p.id !== permissionId));
+            }
+            await removeFromSharedAccess(permission);
+            console.log(`Permission deleted for: ${permission.name}`);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRevokePermission = (permissionId: string) => {
     Alert.alert(
       t.revoke,
       'Are you sure you want to revoke access to this data?',
@@ -220,6 +272,7 @@ export default function ProfileScreen() {
             if (permission) {
               setCurrentPermissions(currentPermissions.filter(p => p.id !== permissionId));
               setRevokedPermissions([...revokedPermissions, { ...permission, revokedDate: new Date().toISOString() }]);
+              removeFromSharedAccess(permission);
               console.log(`Permission revoked for: ${permission.name}`);
             }
           }
@@ -228,13 +281,39 @@ export default function ProfileScreen() {
     );
   };
   
-  const handleEditPermission = (permissionId: number) => {
+  const mapContactToInput = (contact: any): AddAccessInput => ({
+    contactType: contact.permissions_contact_type === 'professional' ? 'professional' : 'personal',
+    fullName: contact.profile_fullname || '',
+    email: contact.profile_email || '',
+    relationship: contact.permissions_relationship || '',
+    expires: contact.expires || '',
+    permissions: {
+      medicalHistory: { view: !!contact.medical_history_view, download: !!contact.medical_history_download, edit: !!contact.medical_history_edit },
+      healthRecords: { view: !!contact.health_records_view, download: !!contact.health_records_download, edit: !!contact.health_records_edit },
+      healthPlan: { view: !!contact.health_plan_view, download: !!contact.health_plan_download, edit: !!contact.health_plan_edit },
+      medications: { view: !!contact.medications_view, download: !!contact.medications_download, edit: !!contact.medications_edit },
+      appointments: { view: !!contact.appointments_view, edit: !!contact.appointments_edit },
+      messages: { view: !!contact.messages_view, edit: !!contact.messages_edit },
+    },
+  });
+
+  const handleEditPermission = (permissionId: string) => {
     const permission = currentPermissions.find(p => p.id === permissionId);
-    console.log(`Edit permission for: ${permission?.name}`);
-    Alert.alert(t.edit, 'Edit permissions functionality in development.');
+    if (!permission) return;
+    const contact =
+      (sharedAccess?.health_professionals || []).find(
+        (c: any) => c.id === permission.contactId || c.profile_email?.toLowerCase() === permission.contactEmail?.toLowerCase()
+      ) ||
+      (sharedAccess?.family_friends || []).find(
+        (c: any) => c.id === permission.contactId || c.profile_email?.toLowerCase() === permission.contactEmail?.toLowerCase()
+      );
+    const initial = contact ? mapContactToInput(contact) : null;
+    setEditingPermission(permission);
+    setEditInitialInput(initial);
+    setAddAccessModalVisible(true);
   };
   
-  const handleRestorePermission = (permissionId: number) => {
+  const handleRestorePermission = (permissionId: string) => {
     Alert.alert(
       t.restoreAccess,
       'Do you want to restore access to this data?',
@@ -257,6 +336,8 @@ export default function ProfileScreen() {
   };
   
   const handleAddNewAccess = () => {
+    setEditingPermission(null);
+    setEditInitialInput(null);
     setAddAccessModalVisible(true);
   };
 
@@ -267,7 +348,7 @@ export default function ProfileScreen() {
           ? `${input.expires.slice(0, 4)}-${input.expires.slice(4, 6)}-${input.expires.slice(6, 8)}`
           : input.expires.trim();
 
-      const entryId = `contact-${Date.now()}`;
+      const entryId = editingPermission?.contactId || `contact-${Date.now()}`;
       const newEntry = {
         id: entryId,
         permissions_contact_type: input.contactType === 'professional' ? 'professional' : 'personal',
@@ -297,23 +378,35 @@ export default function ProfileScreen() {
       };
 
       const current: UserSharedAccess = sharedAccess || {};
+      const withoutContact = (list?: any[]) =>
+        (list || []).filter(
+          (c) =>
+            c.id !== entryId &&
+            c.profile_email?.toLowerCase() !== newEntry.profile_email.toLowerCase()
+        );
+
+      const nextHealthPros = withoutContact(current.health_professionals);
+      const nextFamilyFriends = withoutContact(current.family_friends);
+
+      if (newEntry.permissions_contact_type === 'professional') {
+        nextHealthPros.push(newEntry);
+      } else {
+        nextFamilyFriends.push(newEntry);
+      }
+
       const updated: UserSharedAccess = {
         ...current,
-        health_professionals:
-          input.contactType === 'professional'
-            ? [...(current.health_professionals || []), newEntry]
-            : current.health_professionals || [],
-        family_friends:
-          input.contactType === 'personal'
-            ? [...(current.family_friends || []), newEntry]
-            : current.family_friends || [],
+        health_professionals: nextHealthPros,
+        family_friends: nextFamilyFriends,
       };
 
       console.log('[permissions] handleSaveNewAccess payload', updated);
 
       // Optimistically update UI list so the new contact appears immediately
       const newPermission: Permission = {
-        id: Date.now(),
+        id: entryId,
+        contactId: entryId,
+        contactEmail: newEntry.profile_email,
         name: newEntry.profile_fullname || 'Unknown',
         role: newEntry.permissions_contact_type || input.contactType,
         specialty: newEntry.permissions_relationship || '',
@@ -322,11 +415,38 @@ export default function ProfileScreen() {
         expiryDate: newEntry.expires || null,
         image: input.contactType === 'professional' ? DEFAULT_HEALTH_PRO_IMAGE : DEFAULT_FAMILY_IMAGE,
       };
-      setCurrentPermissions((prev) => [...prev, newPermission]);
+
+      if (editingPermission) {
+        setCurrentPermissions((prev) =>
+          prev.map((p) => (p.id === editingPermission.id ? newPermission : p))
+        );
+      } else {
+        setCurrentPermissions((prev) => [...prev, newPermission]);
+      }
+
       queryClient.setQueryData(['shared-access'], updated);
 
       await updateSharedAccess(updated);
-      await sendInviteEmail(newEntry.profile_email, newEntry.profile_fullname || '');
+
+      if (!editingPermission) {
+        // Send invite if the allowed user isn't registered (backend will decide and email if needed)
+        try {
+          const contactTypeForInvite = input.contactType === 'professional' ? 'doctor' : 'personal';
+          await PermissionsApiService.inviteSharedAccess({
+            email: newEntry.profile_email,
+            name: newEntry.profile_fullname,
+            type: contactTypeForInvite,
+            relationship: newEntry.permissions_relationship,
+            expires: newEntry.expires,
+            permissions: input.permissions,
+          });
+        } catch (inviteErr) {
+          console.warn('[permissions] inviteSharedAccess failed', inviteErr);
+        }
+      }
+
+      setEditingPermission(null);
+      setEditInitialInput(null);
       setAddAccessModalVisible(false);
       Alert.alert(t.success || 'Success', 'Access granted successfully.');
     } catch (err: any) {
@@ -853,8 +973,10 @@ export default function ProfileScreen() {
                   
                   <View style={styles.permissionDetails}>
                     <Text style={styles.permissionDetailText}>
-                      {t.accessGranted} {new Date(permission.grantedDate).toLocaleDateString(language === 'pt-PT' ? 'pt-PT' : language === 'es-ES' ? 'es-ES' : 'en-US')}
-                      {permission.expiryDate ? ` • ${t.accessExpires} ${new Date(permission.expiryDate).toLocaleDateString(language === 'pt-PT' ? 'pt-PT' : language === 'es-ES' ? 'es-ES' : 'en-US')}` : ''}
+                      {t.accessGranted} {formatDateSafe(permission.grantedDate) || '—'}
+                      {permission.expiryDate
+                        ? ` • ${t.accessExpires} ${formatDateSafe(permission.expiryDate) || '—'}`
+                        : ''}
                     </Text>
                   </View>
                   
@@ -871,6 +993,13 @@ export default function ProfileScreen() {
                       onPress={() => handleRevokePermission(permission.id)}
                     >
                       <Text style={styles.revokeButtonText}>{t.revoke}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.permissionActionButton, styles.deleteButton]}
+                      onPress={() => handleDeletePermission(permission.id, false)}
+                    >
+                      <Text style={styles.deleteButtonText}>{t.delete || 'Delete'}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -922,6 +1051,13 @@ export default function ProfileScreen() {
                     >
                       <Text style={styles.revokeButtonText}>{t.revoke}</Text>
                     </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.permissionActionButton, styles.deleteButton]}
+                      onPress={() => handleDeletePermission(permission.id, false)}
+                    >
+                      <Text style={styles.deleteButtonText}>{t.delete || 'Delete'}</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -969,6 +1105,13 @@ export default function ProfileScreen() {
                   >
                     <Text style={styles.permissionActionText}>{t.restoreAccess}</Text>
                   </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.permissionActionButton, styles.deleteButton]}
+                      onPress={() => handleDeletePermission(permission.id, true)}
+                    >
+                      <Text style={styles.deleteButtonText}>{t.delete || 'Delete'}</Text>
+                    </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -1666,8 +1809,15 @@ export default function ProfileScreen() {
       <AddAccessModal
         visible={addAccessModalVisible}
         loading={isUpdatingSharedAccess}
-        onClose={() => setAddAccessModalVisible(false)}
+        onClose={() => {
+          setAddAccessModalVisible(false);
+          setEditingPermission(null);
+          setEditInitialInput(null);
+        }}
         onSave={handleSaveNewAccess}
+        initialInput={editInitialInput || undefined}
+        title={editingPermission ? t.edit : undefined}
+        primaryLabel={editingPermission ? t.save || 'Save' : undefined}
       />
     </SafeAreaView>
   );
@@ -2058,6 +2208,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: Colors.textLighter,
+  },
+  deleteButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: Colors.danger + '20',
+    borderWidth: 1,
+    borderColor: Colors.danger + '40',
+  },
+  deleteButtonText: {
+    fontSize: 12,
+    color: Colors.danger,
+    fontWeight: '600',
   },
   permissionDetails: {
     marginBottom: 12,

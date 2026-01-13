@@ -40,6 +40,9 @@ type Props = {
   loading?: boolean;
   onClose: () => void;
   onSave: (input: AddAccessInput) => void;
+  initialInput?: AddAccessInput | null;
+  title?: string;
+  primaryLabel?: string;
 };
 
 const defaultPermissions = (): AddAccessInput['permissions'] => ({
@@ -51,7 +54,15 @@ const defaultPermissions = (): AddAccessInput['permissions'] => ({
   messages: { view: true, edit: false },
 });
 
-export function AddAccessModal({ visible, loading, onClose, onSave }: Props) {
+export function AddAccessModal({
+  visible,
+  loading,
+  onClose,
+  onSave,
+  initialInput,
+  title,
+  primaryLabel,
+}: Props) {
   const [contactType, setContactType] = useState<'professional' | 'personal'>('professional');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -62,16 +73,25 @@ export function AddAccessModal({ visible, loading, onClose, onSave }: Props) {
 
   useEffect(() => {
     if (visible) {
-      // Reset form each time the modal opens
-      setContactType('professional');
-      setFullName('');
-      setEmail('');
-      setRelationship('');
-      setExpires('');
-      setPermissions(defaultPermissions());
+      if (initialInput) {
+        setContactType(initialInput.contactType);
+        setFullName(initialInput.fullName || '');
+        setEmail(initialInput.email || '');
+        setRelationship(initialInput.relationship || '');
+        setExpires(initialInput.expires || '');
+        setPermissions(initialInput.permissions || defaultPermissions());
+      } else {
+        // Reset form each time the modal opens
+        setContactType('professional');
+        setFullName('');
+        setEmail('');
+        setRelationship('');
+        setExpires('');
+        setPermissions(defaultPermissions());
+      }
       setError('');
     }
-  }, [visible]);
+  }, [visible, initialInput]);
 
   const togglePermission = (category: keyof AddAccessInput['permissions'], field: keyof PermissionGroup) => {
     setPermissions((prev) => ({
@@ -153,7 +173,7 @@ export function AddAccessModal({ visible, loading, onClose, onSave }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.container}>
-          <Text style={styles.title}>Grant Access</Text>
+          <Text style={styles.title}>{title || 'Grant Access'}</Text>
           <Text style={styles.subtitle}>Share your data with a professional or family member.</Text>
 
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -256,7 +276,7 @@ export function AddAccessModal({ visible, loading, onClose, onSave }: Props) {
               onPress={handleSave}
               disabled={loading}
             >
-              <Text style={styles.primaryButtonText}>{loading ? 'Saving…' : 'Save access'}</Text>
+              <Text style={styles.primaryButtonText}>{loading ? 'Saving…' : primaryLabel || 'Save access'}</Text>
             </TouchableOpacity>
           </View>
         </View>

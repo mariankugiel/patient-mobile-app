@@ -1,16 +1,30 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import Constants from 'expo-constants';
 import { SecureTokenStorage } from '../storage/secure-storage';
 import { createClient } from '../supabase/client';
 
 // Get API base URL from environment
 // In Expo, environment variables prefixed with EXPO_PUBLIC_ are available at runtime
 const getBaseUrl = () => {
-  return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+  const extraUrl =
+    Constants.expoConfig?.extra?.apiUrl ||
+    // fallback for older manifests
+    (Constants as any).manifest?.extra?.apiUrl;
+  return (
+    process.env.EXPO_PUBLIC_API_URL ||
+    // fallback to web env name if provided
+    (process.env as any).NEXT_PUBLIC_API_URL ||
+    extraUrl ||
+    'http://localhost:8000'
+  );
 };
 
 // Create axios instance
+const baseURL = `${getBaseUrl()}/api/v1`;
+console.log('[api] baseURL', baseURL);
+
 const apiClient: AxiosInstance = axios.create({
-  baseURL: `${getBaseUrl()}/api/v1`,
+  baseURL,
   timeout: 120000, // 2 minutes default timeout
   headers: {
     'Content-Type': 'application/json',
@@ -37,6 +51,25 @@ apiClient.interceptors.request.use(
     try {
       let token = await SecureTokenStorage.getToken();
       const refreshToken = await SecureTokenStorage.getRefreshToken();
+
+      // Fallback: if no token is stored, try Supabase session (helps on cold start)
+      if (!token) {
+        try {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            token = session.access_token;
+            await SecureTokenStorage.setToken(
+              session.access_token,
+              session.refresh_token,
+              session.expires_in
+            );
+            console.log('✅ Restored token from Supabase session');
+          }
+        } catch (fallbackErr: any) {
+          console.warn('⚠️ Could not restore token from Supabase session', fallbackErr?.message || fallbackErr);
+        }
+      }
 
       // Check if token is expired or about to expire
       const isExpired = await SecureTokenStorage.isTokenExpired();
@@ -76,6 +109,19 @@ apiClient.interceptors.request.use(
       // Add token to request header
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Debug logging for permissions endpoints only
+      const url = config.url || '';
+      if (url.includes('/auth/shared-access') || url.includes('/auth/access-logs')) {
+        const authHeader = config.headers.Authorization as string | undefined;
+        const authPreview = authHeader ? `${authHeader.slice(0, 20)}...` : 'missing';
+        console.log('[api] request', {
+          url: config.baseURL ? `${config.baseURL}${url}` : url,
+          method: config.method,
+          hasAuth: !!authHeader,
+          authorization: authPreview,
+        });
       }
 
       // Add Accept-Language header based on user's language preference
