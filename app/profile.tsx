@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Platform, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Platform, Alert, ActivityIndicator, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -68,6 +68,32 @@ type Permission = {
   image: string;
 };
 
+const DEFAULT_HEALTH_PRO_IMAGE =
+  'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60';
+const DEFAULT_FAMILY_IMAGE =
+  'https://images.unsplash.com/photo-1566492031773-4f4e44671857?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60';
+
+const INVITE_LINK = 'https://patient.saluso.app';
+
+const sendInviteEmail = async (email: string, fullName: string) => {
+  if (!email) return;
+  const subject = encodeURIComponent('You are invited to access Saluso');
+  const body = encodeURIComponent(
+    `Hi ${fullName || ''},\n\nYou have been granted access to health information on Saluso. Please join using this link:\n${INVITE_LINK}\n\nThank you.`
+  );
+  const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
+  try {
+    const canOpen = await Linking.canOpenURL(mailtoUrl);
+    if (canOpen) {
+      await Linking.openURL(mailtoUrl);
+    } else {
+      console.warn('Cannot open mail client for invite', mailtoUrl);
+    }
+  } catch (error) {
+    console.warn('Failed to launch mail client for invite', error);
+  }
+};
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { t, language, setLanguage } = useLanguage();
@@ -117,10 +143,7 @@ export default function ProfileScreen() {
   
   // Update permissions when sharedAccess loads
   React.useEffect(() => {
-    if (!sharedAccess) {
-      setCurrentPermissions([]);
-      return;
-    }
+    if (!sharedAccess) return;
 
     const healthProfessionals = (sharedAccess.health_professionals || []).map((hp, index) => ({
       id: index + 1,
@@ -144,7 +167,13 @@ export default function ProfileScreen() {
       image: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
     }));
     
-    setCurrentPermissions([...healthProfessionals, ...familyFriends]);
+    const merged = [...healthProfessionals, ...familyFriends];
+    console.log('[permissions] mapped sharedAccess -> currentPermissions', {
+      hp: healthProfessionals.length,
+      ff: familyFriends.length,
+      total: merged.length,
+    });
+    setCurrentPermissions(merged);
   }, [sharedAccess]);
   
   // Thryve integration hook
@@ -233,6 +262,11 @@ export default function ProfileScreen() {
 
   const handleSaveNewAccess = async (input: AddAccessInput) => {
     try {
+      const expiresNormalized =
+        /^\d{8}$/.test(input.expires.trim())
+          ? `${input.expires.slice(0, 4)}-${input.expires.slice(4, 6)}-${input.expires.slice(6, 8)}`
+          : input.expires.trim();
+
       const entryId = `contact-${Date.now()}`;
       const newEntry = {
         id: entryId,
@@ -259,7 +293,7 @@ export default function ProfileScreen() {
         accessLevel: input.permissions.healthRecords.edit || input.permissions.healthPlan.edit ? 'Completo' : 'Limitado',
         status: 'Active',
         lastAccessed: 'Never',
-        expires: input.expires,
+        expires: expiresNormalized,
       };
 
       const current: UserSharedAccess = sharedAccess || {};
@@ -275,7 +309,24 @@ export default function ProfileScreen() {
             : current.family_friends || [],
       };
 
+      console.log('[permissions] handleSaveNewAccess payload', updated);
+
+      // Optimistically update UI list so the new contact appears immediately
+      const newPermission: Permission = {
+        id: Date.now(),
+        name: newEntry.profile_fullname || 'Unknown',
+        role: newEntry.permissions_contact_type || input.contactType,
+        specialty: newEntry.permissions_relationship || '',
+        accessLevel: newEntry.accessLevel || 'Limitado',
+        grantedDate: new Date().toISOString(),
+        expiryDate: newEntry.expires || null,
+        image: input.contactType === 'professional' ? DEFAULT_HEALTH_PRO_IMAGE : DEFAULT_FAMILY_IMAGE,
+      };
+      setCurrentPermissions((prev) => [...prev, newPermission]);
+      queryClient.setQueryData(['shared-access'], updated);
+
       await updateSharedAccess(updated);
+      await sendInviteEmail(newEntry.profile_email, newEntry.profile_fullname || '');
       setAddAccessModalVisible(false);
       Alert.alert(t.success || 'Success', 'Access granted successfully.');
     } catch (err: any) {
@@ -309,12 +360,12 @@ export default function ProfileScreen() {
       if (integration.connected) {
         // Disconnect
         Alert.alert(
-          t.disconnect || 'Disconnect',
+          t.disconnected || 'Disconnect',
           `${t.disconnectConfirm || 'Are you sure you want to disconnect'} ${integrationId}?`,
           [
             { text: t.cancel, style: 'cancel' },
             {
-              text: t.disconnect || 'Disconnect',
+              text: t.disconnected || 'Disconnect',
               style: 'destructive',
               onPress: async () => {
                 try {
@@ -715,6 +766,24 @@ export default function ProfileScreen() {
     </View>
   );
 
+  const isHealthProfessionalRole = (role?: string) => {
+    const normalized = (role || '').toLowerCase();
+    return [
+      'médica',
+      'médico',
+      'enfermeiro',
+      'professional',
+      'doctor',
+      'healthcare facility',
+      'health professional',
+    ].includes(normalized);
+  };
+
+  const isFamilyFriendRole = (role?: string) => {
+    const normalized = (role || '').toLowerCase();
+    return ['familiar', 'amigo', 'family', 'friend', 'personal', 'family / friend'].includes(normalized);
+  };
+
   const renderPermissionsTab = () => {
     return (
       <View style={styles.tabContent}>
@@ -752,18 +821,15 @@ export default function ProfileScreen() {
         
         {permissionsTab === 'current' && (
           <View style={styles.permissionsList}>
+            {/* debug: current permissions count */}
+            <Text style={styles.permissionDetailText}>
+              {`Current permissions: ${currentPermissions.length}`}
+            </Text>
             <View style={styles.permissionCategory}>
               <Text style={styles.permissionCategoryTitle}>{t.healthProfessionals}</Text>
               
               {currentPermissions
-                .filter(p => 
-                  p.role === 'Médica' ||
-                  p.role === 'Médico' ||
-                  p.role === 'Enfermeiro' ||
-                  p.role === 'Professional' ||
-                  p.role === 'Doctor' ||
-                  p.role === 'Healthcare Facility'
-                )
+                .filter((p) => isHealthProfessionalRole(p.role))
                 .map((permission) => (
                 <View key={permission.id} style={styles.permissionItem}>
                   <View style={styles.permissionHeader}>
@@ -814,7 +880,7 @@ export default function ProfileScreen() {
             <View style={styles.permissionCategory}>
               <Text style={styles.permissionCategoryTitle}>{t.familyFriends}</Text>
               
-              {currentPermissions.filter(p => p.role === 'Familiar' || p.role === 'Amigo' || p.role === 'Family' || p.role === 'Friend').map((permission) => (
+              {currentPermissions.filter((p) => isFamilyFriendRole(p.role)).map((permission) => (
                 <View key={permission.id} style={styles.permissionItem}>
                   <View style={styles.permissionHeader}>
                     <Image 

@@ -39,9 +39,12 @@ export class PermissionsApiService {
    */
   static async updateSharedAccess(sharedAccessData: Partial<UserSharedAccess>): Promise<UserSharedAccess> {
     try {
+      console.log('[permissions] updateSharedAccess → payload', sharedAccessData);
       const response = await apiClient.put('/auth/shared-access', sharedAccessData);
+      console.log('[permissions] updateSharedAccess ← status', response.status, 'data', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('[permissions] updateSharedAccess error', error);
       throw handleApiError(error, 'Failed to update shared access data');
     }
   }

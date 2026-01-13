@@ -1,13 +1,19 @@
+import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PermissionsApiService } from '@/lib/api/permissions-api';
 import { useNetworkStatus } from './useNetworkStatus';
 import type { UserSharedAccess } from '@/lib/api/types';
+
+const hasEntries = (data?: UserSharedAccess | null) =>
+  !!data &&
+  (((data.health_professionals?.length ?? 0) + (data.family_friends?.length ?? 0)) > 0);
 
 /**
  * Hook for fetching data access permissions
  */
 export function usePermissions() {
   const { isConnected } = useNetworkStatus();
+  const [lastNonEmpty, setLastNonEmpty] = React.useState<UserSharedAccess | null>(null);
 
   // Fetch shared access
   const {
@@ -33,9 +39,18 @@ export function usePermissions() {
   } = useMutation({
     mutationFn: (payload: Partial<UserSharedAccess>) =>
       PermissionsApiService.updateSharedAccess(payload),
-    onSuccess: (data) => {
-      if (data) {
-        queryClient.setQueryData(['shared-access'], data);
+    onSuccess: (data, variables) => {
+      // API may return 204/no body or an empty object; fall back to submitted payload
+      const hasResponseEntries =
+        !!data &&
+        (((data as UserSharedAccess).health_professionals?.length ?? 0) +
+          ((data as UserSharedAccess).family_friends?.length ?? 0) >
+          0);
+
+      const next = hasResponseEntries ? (data as UserSharedAccess) : (variables as UserSharedAccess) ?? null;
+      queryClient.setQueryData(['shared-access'], next);
+      if (hasEntries(next)) {
+        setLastNonEmpty(next as UserSharedAccess);
       }
       refetchAccess();
       refetchLogs();
@@ -63,7 +78,16 @@ export function usePermissions() {
     enabled: isConnected,
   });
 
-  const normalizedSharedAccess = sharedAccess ?? null;
+  // Track last non-empty shared access so refetches that return empty don't clear UI
+  React.useEffect(() => {
+    if (hasEntries(sharedAccess)) {
+      setLastNonEmpty(sharedAccess as UserSharedAccess);
+    }
+  }, [sharedAccess]);
+
+  const normalizedSharedAccess = hasEntries(sharedAccess)
+    ? (sharedAccess as UserSharedAccess)
+    : lastNonEmpty ?? (sharedAccess as UserSharedAccess) ?? null;
 
   return {
     sharedAccess: normalizedSharedAccess,
