@@ -244,7 +244,7 @@ export interface AIChatResponse {
 
 // Virtual bot conversation for UI
 export interface BotConversation extends Omit<Conversation, 'id' | 'contact_id'> {
-  id: typeof SALUSO_SUPPORT_CONVERSATION_ID
+  id: 'saluso-support' | typeof SALUSO_SUPPORT_CONVERSATION_ID
   contact_id: 0  // Special ID for bot
   contact_name: 'Saluso Support'
   contact_role: 'AI Assistant'

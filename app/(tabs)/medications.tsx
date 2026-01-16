@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Plus, Pill, Edit, Trash2, Calendar, Clock, FileText, X, Menu } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -18,6 +18,9 @@ export default function MedicationsScreen() {
   const [endingMedicationId, setEndingMedicationId] = useState<number | null>(null);
   const [deletingMedicationId, setDeletingMedicationId] = useState<number | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [openEndDialog, setOpenEndDialog] = useState(false);
+  const [medicationToEnd, setMedicationToEnd] = useState<Medication | null>(null);
+  const [endReason, setEndReason] = useState('');
 
   const { 
     medications: currentMeds, 
@@ -59,35 +62,36 @@ export default function MedicationsScreen() {
     });
   };
 
-  const handleEndMedication = (medication: Medication) => {
-    Alert.alert(
-      t.medicationsEndMedication || 'End Medication',
-      `${t.medicationsEndMedicationDescription || 'Are you sure you want to end'} "${medication.medication_name}"? ${t.medicationsEndMedicationDescription || 'You can optionally provide a reason.'}`,
-      [
-        {
-          text: t.cancel || 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: t.medicationsEndMedication || 'End Medication',
-          style: 'destructive',
-          onPress: () => {
-            setEndingMedicationId(medication.id);
-            endMedication(medication.id)
-              .then(() => {
-                refreshCurrent();
-                refreshPrevious();
-              })
-              .catch((err: any) => {
-                Alert.alert(t.validationError || 'Error', err.message || 'Failed to end medication');
-              })
-              .finally(() => {
-                setEndingMedicationId(null);
-              });
-          }
-        }
-      ]
-    );
+  const handleOpenEndDialog = (medication: Medication) => {
+    setMedicationToEnd(medication);
+    setEndReason('');
+    setOpenEndDialog(true);
+  };
+
+  const handleEndMedication = async () => {
+    if (!medicationToEnd) return;
+    
+    setEndingMedicationId(medicationToEnd.id);
+    try {
+      await endMedication(medicationToEnd.id, endReason.trim() || undefined);
+      refreshCurrent();
+      refreshPrevious();
+      setOpenEndDialog(false);
+      setMedicationToEnd(null);
+      setEndReason('');
+    } catch (err: any) {
+      Alert.alert(t.validationError || 'Error', err.message || 'Failed to end medication');
+    } finally {
+      setEndingMedicationId(null);
+    }
+  };
+
+  const handleCloseEndDialog = () => {
+    if (endingMedicationId === null) {
+      setOpenEndDialog(false);
+      setMedicationToEnd(null);
+      setEndReason('');
+    }
   };
 
   const handleDeleteMedication = (medication: Medication) => {
@@ -202,7 +206,7 @@ export default function MedicationsScreen() {
             <Text style={styles.infoLabel}>{t.medicationsEndDate || 'End Date'}:</Text>
             <TouchableOpacity
               style={styles.endNowButton}
-              onPress={() => handleEndMedication(medication)}
+              onPress={() => handleOpenEndDialog(medication)}
               disabled={endingMedicationId === medication.id}
             >
               {endingMedicationId === medication.id ? (
@@ -427,6 +431,76 @@ export default function MedicationsScreen() {
       />
 
       {activeTab === 'current' ? renderCurrentMedications() : renderPreviousMedications()}
+
+      {/* End Medication Dialog */}
+      <Modal
+        visible={openEndDialog}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseEndDialog}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {t.medicationsEndMedication || 'End Medication'}
+              </Text>
+              <TouchableOpacity
+                onPress={handleCloseEndDialog}
+                disabled={endingMedicationId !== null}
+              >
+                <X size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalDescription}>
+              {t.medicationsEndMedicationDescription || 'Are you sure you want to end'} "{medicationToEnd?.medication_name}"? {t.medicationsEndMedicationDescription || 'You can optionally provide a reason.'}
+            </Text>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.reasonLabel}>
+                {t.medicationsEndReason || 'Reason (Optional)'}
+              </Text>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder={t.medicationsEndReasonPlaceholder || 'e.g., Completed treatment, Side effects, Switched to alternative...'}
+                placeholderTextColor={Colors.textLighter}
+                value={endReason}
+                onChangeText={setEndReason}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                editable={endingMedicationId === null}
+              />
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleCloseEndDialog}
+                disabled={endingMedicationId !== null}
+              >
+                <Text style={styles.cancelButtonText}>
+                  {t.cancel || 'Cancel'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.endButton]}
+                onPress={handleEndMedication}
+                disabled={endingMedicationId !== null}
+              >
+                {endingMedicationId ? (
+                  <ActivityIndicator size="small" color={Colors.background} />
+                ) : (
+                  <Text style={styles.endButtonText}>
+                    {t.medicationsEndMedication || 'End Medication'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -656,6 +730,89 @@ const styles = StyleSheet.create({
   emptyAddButtonText: {
     color: Colors.background,
     fontWeight: 'bold',
+    fontSize: 16,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 500,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.text,
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: Colors.textLight,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  modalBody: {
+    marginBottom: 20,
+  },
+  reasonLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  reasonInput: {
+    backgroundColor: Colors.secondary,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  modalButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  cancelButtonText: {
+    color: Colors.text,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  endButton: {
+    backgroundColor: '#FF9800', // Orange color matching web app
+  },
+  endButtonText: {
+    color: Colors.background,
+    fontWeight: '600',
     fontSize: 16,
   },
 });

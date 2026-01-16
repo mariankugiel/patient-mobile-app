@@ -180,7 +180,21 @@ class AppointmentsApiService {
       params.month = month;
     }
     const response = await apiClient.get('/appointments/availability/dates', { params });
-    return response.data.dates || [];
+    const datesRaw = response.data.dates || [];
+    
+    // Extract date strings from objects if needed
+    // API might return [{date: "2026-01-15"}, ...] or ["2026-01-15", ...]
+    const dates = datesRaw.map((item: any) => {
+      if (typeof item === 'string') {
+        return item;
+      } else if (item && typeof item === 'object' && item.date) {
+        return item.date;
+      } else {
+        return String(item);
+      }
+    }).filter(Boolean);
+    
+    return dates;
   }
 
   /**

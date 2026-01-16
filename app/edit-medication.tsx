@@ -35,10 +35,10 @@ export default function EditMedicationScreen() {
   const [endDate, setEndDate] = useState('');
 
   // Prescription fields
-  const [rxNumber, setRxNumber] = useState('');
-  const [pharmacy, setPharmacy] = useState('');
-  const [originalQuantity, setOriginalQuantity] = useState('');
-  const [refillsRemaining, setRefillsRemaining] = useState('');
+  const [rxNumber, setRxNumber] = useState<string | null>(null);
+  const [pharmacy, setPharmacy] = useState<string | null>(null);
+  const [originalQuantity, setOriginalQuantity] = useState<string | null>(null);
+  const [refillsRemaining, setRefillsRemaining] = useState<string | null>(null);
   const [lastFilledDate, setLastFilledDate] = useState('');
 
   // Load medication data
@@ -51,14 +51,14 @@ export default function EditMedicationScreen() {
       setInstructions(medication.instructions || '');
       setStartDate(medication.start_date ? medication.start_date.split('T')[0] : '');
       setEndDate(medication.end_date ? medication.end_date.split('T')[0] : '');
-      setRxNumber(medication.rx_number || '');
-      setPharmacy(medication.pharmacy || '');
-      setOriginalQuantity(medication.original_quantity?.toString() || '');
-      setRefillsRemaining(medication.refills_remaining?.toString() || '');
+      setRxNumber(medication.rx_number || null);
+      setPharmacy(medication.pharmacy || null);
+      setOriginalQuantity(medication.original_quantity !== null && medication.original_quantity !== undefined ? medication.original_quantity.toString() : null);
+      setRefillsRemaining(medication.refills_remaining !== null && medication.refills_remaining !== undefined ? medication.refills_remaining.toString() : null);
       setLastFilledDate(medication.last_filled_date ? medication.last_filled_date.split('T')[0] : '');
       setIsLoading(false);
     } else if (!medicationId) {
-      Alert.alert(t.error || 'Error', t.medicationNotFound || 'Medication not found');
+      Alert.alert(t.error || 'Error', 'Medication not found');
       router.back();
     }
   }, [medication, medicationId]);
@@ -111,27 +111,50 @@ export default function EditMedicationScreen() {
 
     setIsSubmitting(true);
     try {
+      // Helper function to convert empty strings to null (to clear fields on server)
+      // If value is undefined, don't include it (no change)
+      // If value is empty string, send null (clear the field)
+      // Otherwise, send the trimmed value
+      const toNullIfEmpty = (value: string | null | undefined): string | null | undefined => {
+        if (value === undefined) return undefined; // Don't change if not provided
+        if (value === null) return null; // Explicitly null
+        const trimmed = value.trim();
+        return trimmed === '' ? null : trimmed; // Empty string becomes null to clear
+      };
+
+      // Helper for numeric fields - if undefined, don't change; if null, send null to clear
+      const handleNumericField = (value: string | null | undefined, allowZero: boolean = false): number | null | undefined => {
+        if (value === undefined) return undefined; // Don't change if not provided
+        if (value === null || value === '') return null; // Explicitly null to clear the field
+        const parsed = parseInt(value);
+        return isNaN(parsed) ? null : parsed;
+      };
+
       const medicationData: MedicationUpdate = {
         medication_name: name.trim(),
-        dosage: dosage.trim() || undefined,
-        frequency: frequency.trim() || undefined,
-        purpose: purpose.trim() || undefined,
-        instructions: instructions.trim() || undefined,
+        dosage: toNullIfEmpty(dosage) as string | null | undefined,
+        frequency: toNullIfEmpty(frequency) as string | null | undefined,
+        purpose: toNullIfEmpty(purpose) as string | null | undefined,
+        instructions: toNullIfEmpty(instructions) as string | null | undefined,
         start_date: startDate,
         end_date: endDate || undefined,
-        // Prescription information
-        rx_number: rxNumber.trim() || undefined,
-        pharmacy: pharmacy.trim() || undefined,
-        original_quantity: originalQuantity ? parseInt(originalQuantity) : undefined,
-        refills_remaining: refillsRemaining ? parseInt(refillsRemaining) : undefined,
-        last_filled_date: lastFilledDate || undefined,
+        // Prescription information - explicitly send null to clear fields when empty
+        rx_number: toNullIfEmpty(rxNumber) as string | null | undefined,
+        pharmacy: toNullIfEmpty(pharmacy) as string | null | undefined,
+        original_quantity: handleNumericField(originalQuantity, false) as number | null | undefined,
+        refills_remaining: handleNumericField(refillsRemaining, true) as number | null | undefined, // Allow 0 for refills
+        last_filled_date: (() => {
+          if (!lastFilledDate) return undefined;
+          const dateStr = lastFilledDate.trim();
+          return dateStr === '' ? null : dateStr;
+        })() as string | null | undefined,
       };
 
       await medicationsApiService.updateMedication(medicationId, medicationData);
       
       Alert.alert(
         t.save || 'Success',
-        t.medicationUpdatedSuccessfully || 'Medication updated successfully!',
+        'Medication updated successfully!',
         [
           {
             text: t.confirm || 'OK',
@@ -143,7 +166,7 @@ export default function EditMedicationScreen() {
       console.error('Error updating medication:', error);
       Alert.alert(
         t.validationError || 'Error',
-        error.message || (t.medicationUpdateFailed || 'Failed to update medication. Please try again.')
+        error.message || 'Failed to update medication. Please try again.'
       );
     } finally {
       setIsSubmitting(false);
@@ -160,7 +183,7 @@ export default function EditMedicationScreen() {
           >
             <ArrowLeft size={24} color={Colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t.editMedication || 'Edit Medication'}</Text>
+          <Text style={styles.headerTitle}>Edit Medication</Text>
           <View style={styles.spacer} />
         </View>
         <View style={styles.loadingContainer}>
@@ -184,7 +207,7 @@ export default function EditMedicationScreen() {
         >
           <ArrowLeft size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t.editMedication || 'Edit Medication'}</Text>
+        <Text style={styles.headerTitle}>Edit Medication</Text>
         <View style={styles.spacer} />
       </View>
 
@@ -194,7 +217,7 @@ export default function EditMedicationScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sectionDescription}>
-          {t.medicationsEditDetails || 'Edit the details of your medication.'}
+          Edit the details of your medication.
         </Text>
 
         {/* Name - Required */}
@@ -289,7 +312,7 @@ export default function EditMedicationScreen() {
                 label={t.medicationsEndDate || 'End Date'}
                 minimumDate={startDate ? new Date(new Date(startDate).getTime() + 86400000) : undefined}
                 disabled={isSubmitting}
-                error={startDate && endDate && new Date(endDate) <= new Date(startDate)}
+                error={startDate && endDate ? new Date(endDate) <= new Date(startDate) : undefined}
                 style={{ marginBottom: 0 }}
               />
             </View>
@@ -327,8 +350,10 @@ export default function EditMedicationScreen() {
               <TextInput
                 style={styles.input}
                 placeholder={t.medicationsRxNumberPlaceholder || 'Prescription number'}
-                value={rxNumber}
-                onChangeText={setRxNumber}
+                value={rxNumber ?? ''}
+                onChangeText={(text) => {
+                  setRxNumber(text === '' ? null : text);
+                }}
                 editable={!isSubmitting}
               />
             </View>
@@ -339,8 +364,10 @@ export default function EditMedicationScreen() {
               <TextInput
                 style={styles.input}
                 placeholder={t.medicationsPharmacyPlaceholder || 'Pharmacy name'}
-                value={pharmacy}
-                onChangeText={setPharmacy}
+                value={pharmacy ?? ''}
+                onChangeText={(text) => {
+                  setPharmacy(text === '' ? null : text);
+                }}
                 editable={!isSubmitting}
               />
             </View>
@@ -352,8 +379,10 @@ export default function EditMedicationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder={t.medicationsQuantityPlaceholder || 'Original quantity'}
-                  value={originalQuantity}
-                  onChangeText={setOriginalQuantity}
+                  value={originalQuantity ?? ''}
+                  onChangeText={(text) => {
+                    setOriginalQuantity(text === '' ? null : text);
+                  }}
                   keyboardType="numeric"
                   editable={!isSubmitting}
                 />
@@ -364,8 +393,10 @@ export default function EditMedicationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder={t.medicationsRefillsRemainingPlaceholder || 'Number of refills'}
-                  value={refillsRemaining}
-                  onChangeText={setRefillsRemaining}
+                  value={refillsRemaining ?? ''}
+                  onChangeText={(text) => {
+                    setRefillsRemaining(text === '' ? null : text);
+                  }}
                   keyboardType="numeric"
                   editable={!isSubmitting}
                 />
@@ -393,7 +424,7 @@ export default function EditMedicationScreen() {
             (isSubmitting || !name || !dosage || !frequency || !startDate || (startDate && endDate && new Date(endDate) <= new Date(startDate))) && styles.saveButtonDisabled
           ]}
           onPress={handleSave}
-          disabled={isSubmitting || !name || !dosage || !frequency || !startDate || (startDate && endDate && new Date(endDate) <= new Date(startDate))}
+          disabled={isSubmitting || !name || !dosage || !frequency || !startDate || !!(startDate && endDate && new Date(endDate) <= new Date(startDate))}
           activeOpacity={0.8}
         >
           {isSubmitting ? (

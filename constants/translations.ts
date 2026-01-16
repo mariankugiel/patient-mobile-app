@@ -562,6 +562,8 @@ export interface Translations {
   examDate: string;
   examRegion: string;
   conclusion: string;
+  bodyPartMaxLength: string;
+  characters: string;
   risk: string;
   lowRiskFindings: string;
   moderateRiskFindings: string;
@@ -593,11 +595,13 @@ export interface Translations {
   appointmentsJoinCall: string;
   appointmentsViewDetails: string;
   appointmentsViewReport: string;
+  appointmentsViewLocation: string;
   appointmentsBookAppointment: string;
   appointmentsDate: string;
   appointmentsTime: string;
   appointmentsType: string;
   appointmentsLocation: string;
+  appointmentsCost: string;
   appointmentsNotes: string;
   appointmentsConfirmCancel: string;
   appointmentsCancelConfirmDesc: string;
@@ -708,6 +712,8 @@ export interface Translations {
   medicationsEndNow: string;
   medicationsEnding: string;
   medicationsReasonEnded: string;
+  medicationsEndReason: string;
+  medicationsEndReasonPlaceholder: string;
   medicationsEndDateMustBeAfterStartDate: string;
   medicationsPleaseFillInName: string;
   medicationsPleaseFillInDosage: string;
@@ -765,6 +771,7 @@ export interface Translations {
   analysisResults: string;
   rejectResults: string;
   confirmResults: string;
+  resultsConfirmedMessage: string;
   value: string;
   referenceRange: string;
   section: string;
@@ -1309,6 +1316,8 @@ export const translations: Record<Language, Translations> = {
     examDate: 'Data',
     examRegion: 'Região',
     conclusion: 'Conclusão',
+    bodyPartMaxLength: 'A parte do corpo está limitada a 100 caracteres',
+    characters: 'caracteres',
     risk: 'Risco',
     lowRiskFindings: 'Achados de Baixo Risco',
     moderateRiskFindings: 'Achados de Risco Moderado',
@@ -1340,11 +1349,13 @@ export const translations: Record<Language, Translations> = {
     appointmentsJoinCall: 'Entrar na Consulta',
     appointmentsViewDetails: 'Ver Detalhes',
     appointmentsViewReport: 'Ver Relatório',
+    appointmentsViewLocation: 'Ver Localização',
     appointmentsBookAppointment: 'Marcar Consulta',
     appointmentsDate: 'Data',
     appointmentsTime: 'Hora',
     appointmentsType: 'Tipo',
     appointmentsLocation: 'Localização',
+    appointmentsCost: 'Custo',
     appointmentsNotes: 'Notas',
     appointmentsConfirmCancel: 'Confirmar Cancelamento',
     appointmentsCancelConfirmDesc: 'Tem a certeza que deseja cancelar esta consulta?',
@@ -1455,6 +1466,8 @@ export const translations: Record<Language, Translations> = {
     medicationsEndNow: 'Terminar Agora',
     medicationsEnding: 'A terminar...',
     medicationsReasonEnded: 'Motivo do Término',
+    medicationsEndReason: 'Motivo (Opcional)',
+    medicationsEndReasonPlaceholder: 'ex: Tratamento concluído, Efeitos colaterais, Mudou para alternativa...',
     medicationsEndDateMustBeAfterStartDate: 'A data de fim deve ser posterior à data de início.',
     medicationsPleaseFillInName: 'Por favor, preencha o nome do medicamento.',
     medicationsPleaseFillInDosage: 'Por favor, preencha a dosagem.',
@@ -1512,6 +1525,7 @@ export const translations: Record<Language, Translations> = {
     analysisResults: 'Resultados da Análise',
     rejectResults: 'Rejeitar Resultados',
     confirmResults: 'Confirmar Resultados',
+    resultsConfirmedMessage: 'Resultados confirmados. Clique em Carregar para guardar nos registos de saúde.',
     value: 'Valor',
     referenceRange: 'Intervalo de Referência',
     section: 'Secção',
@@ -2122,6 +2136,8 @@ export const translations: Record<Language, Translations> = {
     examDate: 'Fecha',
     examRegion: 'Región',
     conclusion: 'Conclusión',
+    bodyPartMaxLength: 'La parte del cuerpo está limitada a 100 caracteres',
+    characters: 'caracteres',
     risk: 'Riesgo',
     lowRiskFindings: 'Hallazgos de Bajo Riesgo',
     moderateRiskFindings: 'Hallazgos de Riesgo Moderado',
@@ -2153,11 +2169,13 @@ export const translations: Record<Language, Translations> = {
     appointmentsJoinCall: 'Unirse a la Consulta',
     appointmentsViewDetails: 'Ver Detalles',
     appointmentsViewReport: 'Ver Informe',
+    appointmentsViewLocation: 'Ver Ubicación',
     appointmentsBookAppointment: 'Agendar Cita',
     appointmentsDate: 'Fecha',
     appointmentsTime: 'Hora',
     appointmentsType: 'Tipo',
     appointmentsLocation: 'Ubicación',
+    appointmentsCost: 'Costo',
     appointmentsNotes: 'Notas',
     appointmentsConfirmCancel: 'Confirmar Cancelación',
     appointmentsCancelConfirmDesc: '¿Está seguro de que desea cancelar esta cita?',
@@ -2268,6 +2286,8 @@ export const translations: Record<Language, Translations> = {
     medicationsEndNow: 'Terminar Ahora',
     medicationsEnding: 'Terminando...',
     medicationsReasonEnded: 'Motivo del Término',
+    medicationsEndReason: 'Motivo (Opcional)',
+    medicationsEndReasonPlaceholder: 'ej: Tratamiento completado, Efectos secundarios, Cambió a alternativa...',
     medicationsEndDateMustBeAfterStartDate: 'La fecha de fin debe ser posterior a la fecha de inicio.',
     medicationsPleaseFillInName: 'Por favor, complete el nombre del medicamento.',
     medicationsPleaseFillInDosage: 'Por favor, complete la dosificación.',
@@ -2325,6 +2345,7 @@ export const translations: Record<Language, Translations> = {
     analysisResults: 'Resultados del Análisis',
     rejectResults: 'Rechazar Resultados',
     confirmResults: 'Confirmar Resultados',
+    resultsConfirmedMessage: 'Resultados confirmados. Clique em Carregar para guardar nos registos de saúde.',
     value: 'Valor',
     referenceRange: 'Rango de Referencia',
     section: 'Sección',
@@ -2936,6 +2957,8 @@ export const translations: Record<Language, Translations> = {
     examDate: 'Date',
     examRegion: 'Region',
     conclusion: 'Conclusion',
+    bodyPartMaxLength: 'Body part is limited to 100 characters',
+    characters: 'characters',
     risk: 'Risk',
     lowRiskFindings: 'Low Risk Findings',
     moderateRiskFindings: 'Moderate Risk Findings',
@@ -2967,11 +2990,13 @@ export const translations: Record<Language, Translations> = {
     appointmentsJoinCall: 'Join Call',
     appointmentsViewDetails: 'View Details',
     appointmentsViewReport: 'View Report',
+    appointmentsViewLocation: 'View Location',
     appointmentsBookAppointment: 'Book Appointment',
     appointmentsDate: 'Date',
     appointmentsTime: 'Time',
     appointmentsType: 'Type',
     appointmentsLocation: 'Location',
+    appointmentsCost: 'Cost',
     appointmentsNotes: 'Notes',
     appointmentsConfirmCancel: 'Confirm Cancellation',
     appointmentsCancelConfirmDesc: 'Are you sure you want to cancel this appointment?',
@@ -3082,6 +3107,8 @@ export const translations: Record<Language, Translations> = {
     medicationsEndNow: 'End Now',
     medicationsEnding: 'Ending...',
     medicationsReasonEnded: 'Reason Ended',
+    medicationsEndReason: 'Reason (Optional)',
+    medicationsEndReasonPlaceholder: 'e.g., Completed treatment, Side effects, Switched to alternative...',
     medicationsEndDateMustBeAfterStartDate: 'End date must be after start date.',
     medicationsPleaseFillInName: 'Please fill in the medication name.',
     medicationsPleaseFillInDosage: 'Please fill in the dosage.',
@@ -3139,6 +3166,7 @@ export const translations: Record<Language, Translations> = {
     analysisResults: 'Analysis Results',
     rejectResults: 'Reject Results',
     confirmResults: 'Confirm Results',
+    resultsConfirmedMessage: 'Results confirmed. Click Upload to save to health records.',
     value: 'Value',
     referenceRange: 'Reference Range',
     section: 'Section',

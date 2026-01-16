@@ -135,8 +135,26 @@ export class MessagesApiService {
   // Mark messages as read
   async markMessagesAsRead(conversationId: string, messageIds?: string[]): Promise<void> {
     try {
-      await apiClient.post(`/messages/conversations/${conversationId}/mark-read`, {
-        messageIds
+      // Convert conversationId to number (backend expects int)
+      const conversationIdNum = parseInt(conversationId, 10);
+      if (isNaN(conversationIdNum)) {
+        throw new Error('Invalid conversation ID');
+      }
+      
+      // Backend expects message_ids as query parameters (FastAPI default for non-path, non-body params)
+      const params: any = {};
+      if (messageIds && messageIds.length > 0) {
+        // Convert messageIds to numbers
+        const messageIdsNum = messageIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+        if (messageIdsNum.length > 0) {
+          // FastAPI expects query params as comma-separated or array
+          params.message_ids = messageIdsNum;
+        }
+      }
+      
+      // Send POST with query parameters
+      await apiClient.post(`/messages/conversations/${conversationIdNum}/mark-read`, {}, {
+        params: params
       });
     } catch (error: any) {
       console.error('Failed to mark messages as read:', error);
@@ -147,7 +165,13 @@ export class MessagesApiService {
   // Mark a specific message as read
   async markMessageAsRead(messageId: string): Promise<void> {
     try {
-      await apiClient.post(`/messages/${messageId}/mark-read`);
+      // Convert messageId to number (backend expects int)
+      const messageIdNum = parseInt(messageId, 10);
+      if (isNaN(messageIdNum)) {
+        throw new Error('Invalid message ID');
+      }
+      
+      await apiClient.post(`/messages/${messageIdNum}/mark-read`);
     } catch (error: any) {
       console.error('Failed to mark message as read:', error);
       throw handleApiError(error, 'Failed to mark message as read');

@@ -20,6 +20,7 @@ export function useAvailability() {
       setAvailableDates(dates);
       return dates;
     } catch (err: any) {
+      console.error('❌ [useAvailability] Error loading available dates:', err);
       setError(err.message || 'Failed to load available dates');
       setAvailableDates([]);
       return [];

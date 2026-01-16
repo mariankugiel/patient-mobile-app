@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Plus, Calendar, Clock, MapPin, Video, Phone, ChevronRight, X, Menu } from 'lucide-react-native';
+import { Plus, Calendar, Clock, MapPin, Video, Phone, ChevronRight, X, Menu, RefreshCw } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAppointments } from '@/hooks/useAppointments';
@@ -18,7 +18,7 @@ export default function AppointmentsScreen() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
 
-  const { appointments, loading, error, cancelAppointment, refresh } = useAppointments();
+  const { appointments, loading, error, cancelAppointment, rescheduleAppointment, refresh } = useAppointments();
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -116,7 +116,7 @@ export default function AppointmentsScreen() {
           style: 'cancel',
         },
         {
-          text: t.cancelAppointment || 'Cancel Appointment',
+          text: t.cancel || 'Cancel',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -152,6 +152,37 @@ export default function AppointmentsScreen() {
       } catch (err) {
         Alert.alert(t.validationError || 'Error', 'Failed to open video call');
       }
+    }
+  };
+
+  const handleRescheduleAppointment = (appointment: FrontendAppointment) => {
+    // Navigate to add-appointment screen with appointment data for rescheduling
+    router.push({
+      pathname: '/add-appointment',
+      params: {
+        rescheduleId: appointment.id.toString(),
+        doctorId: appointment.doctor_id?.toString() || '',
+        appointmentTypeId: appointment.appointment_type_id?.toString() || '',
+        date: appointment.date,
+        notes: appointment.notes || '',
+      },
+    });
+  };
+
+  const handleViewLocation = async (location: string) => {
+    try {
+      // Encode the location for URL
+      const encodedLocation = encodeURIComponent(location);
+      // Open in maps app (works on both iOS and Android)
+      const mapsUrl = `https://maps.google.com/?q=${encodedLocation}`;
+      const supported = await Linking.canOpenURL(mapsUrl);
+      if (supported) {
+        await Linking.openURL(mapsUrl);
+      } else {
+        Alert.alert(t.validationError || 'Error', 'Cannot open maps application');
+      }
+    } catch (err) {
+      Alert.alert(t.validationError || 'Error', 'Failed to open location in maps');
     }
   };
 
@@ -205,6 +236,14 @@ export default function AppointmentsScreen() {
             </View>
           )}
 
+          {appointment.cost !== undefined && appointment.cost !== null && (
+            <View style={styles.detailItem}>
+              <Text style={styles.detailText}>
+                {t.appointmentsCost || 'Cost'}: ${appointment.cost.toFixed(2)}
+              </Text>
+            </View>
+          )}
+
           {appointment.notes && (
             <Text style={styles.notes}>
               {t.appointmentsNotes || 'Notes'}: {appointment.notes}
@@ -227,6 +266,30 @@ export default function AppointmentsScreen() {
               </TouchableOpacity>
             )}
 
+            {appointment.type === 'in-person' && appointment.location && (
+              <TouchableOpacity
+                style={styles.viewLocationButton}
+                onPress={() => handleViewLocation(appointment.location!)}
+                disabled={isCancelling}
+              >
+                <MapPin size={16} color={Colors.primary} />
+                <Text style={styles.viewLocationButtonText}>
+                  {t.appointmentsViewLocation || 'View Location'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.rescheduleButton}
+              onPress={() => handleRescheduleAppointment(appointment)}
+              disabled={isCancelling}
+            >
+              <RefreshCw size={16} color={Colors.primary} />
+              <Text style={styles.rescheduleButtonText}>
+                {t.rescheduleAppointment || 'Reschedule'}
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => handleCancelAppointment(appointment)}
@@ -236,7 +299,7 @@ export default function AppointmentsScreen() {
                 <ActivityIndicator size="small" color={Colors.danger} />
               ) : (
                 <Text style={styles.cancelButtonText}>
-                  {t.cancelAppointment || 'Cancel'}
+                  {t.cancel || 'Cancel'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -510,9 +573,10 @@ const styles = StyleSheet.create({
   },
   appointmentActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     gap: 8,
+    flexWrap: 'wrap',
   },
   joinButton: {
     flexDirection: 'row',
@@ -525,6 +589,36 @@ const styles = StyleSheet.create({
   },
   joinButtonText: {
     color: Colors.background,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  viewLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    gap: 4,
+  },
+  viewLocationButtonText: {
+    color: Colors.primary,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  rescheduleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    gap: 4,
+  },
+  rescheduleButtonText: {
+    color: Colors.primary,
     fontWeight: 'bold',
     fontSize: 14,
   },

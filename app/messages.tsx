@@ -12,7 +12,7 @@ import {
   RefreshControl
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ArrowLeft, Menu, Search } from 'lucide-react-native';
+import { ArrowLeft, Menu, Search, Home } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMessages } from '@/hooks/useMessages';
@@ -23,18 +23,19 @@ import BotConversationItem from '@/components/messages/BotConversationItem';
 import ConversationItem from '@/components/messages/ConversationItem';
 import MessageBubble from '@/components/messages/MessageBubble';
 import MessageInput from '@/components/messages/MessageInput';
-import type { Conversation, BotConversation, Message, SALUSO_SUPPORT_CONVERSATION_ID } from '@/types/messages';
+import type { Conversation, BotConversation, Message } from '@/types/messages';
 import { SALUSO_SUPPORT_CONVERSATION_ID as BOT_ID } from '@/types/messages';
 
 export default function MessagesScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
-  const { profile } = useAuthStore();
+  const { t, language } = useLanguage();
+  const { user } = useAuthStore();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   
-  const patientId = profile?.id ? Number(profile.id) : undefined;
+  // Backend will get patient_id from the auth token, so we don't need to pass it
+  const patientId = undefined;
   const {
     conversations,
     botConversation,
@@ -93,12 +94,16 @@ export default function MessagesScreen() {
 
   const handleBack = () => {
     if (selectedConversation) {
-      if (isBotConversation) {
-        clearAIMessages();
-      }
+      // Don't clear AI messages when going back - preserve chat history
       selectConversation('__clear__');
     } else {
-      router.back();
+      // Navigate to tabs (home) instead of just going back
+      // This ensures users can always get back to the main app
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/records');
+      }
     }
   };
 
@@ -208,7 +213,8 @@ export default function MessagesScreen() {
       );
     }
 
-    const currentUserId = profile?.id ? Number(profile.id) : 0;
+    // Get current user ID from auth store user object (string) or use 0 as fallback
+    const currentUserId = user?.id ? Number(user.id) : 0;
 
     return (
       <FlatList
@@ -281,24 +287,32 @@ export default function MessagesScreen() {
       <View style={styles.topHeader}>
         <TouchableOpacity
           style={styles.menuButton}
-          onPress={selectedConversation ? handleBack : () => setDrawerVisible(true)}
+          onPress={selectedConversation ? handleBack : () => router.replace('/(tabs)/records')}
         >
           {selectedConversation ? (
             <ArrowLeft size={24} color={Colors.text} />
           ) : (
-            <Menu size={24} color={Colors.text} />
+            <Home size={24} color={Colors.text} />
           )}
         </TouchableOpacity>
         <Text style={styles.topHeaderTitle}>{getHeaderTitle()}</Text>
         {!selectedConversation && (
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={() => setShowSearch(!showSearch)}
-          >
-            <Search size={20} color={Colors.text} />
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={() => setShowSearch(!showSearch)}
+            >
+              <Search size={20} color={Colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={() => setDrawerVisible(true)}
+            >
+              <Menu size={24} color={Colors.text} />
+            </TouchableOpacity>
+          </>
         )}
-        {!selectedConversation && <View style={{ width: 40 }} />}
+        {selectedConversation && <View style={{ width: 40 }} />}
       </View>
 
       <KeyboardAvoidingView

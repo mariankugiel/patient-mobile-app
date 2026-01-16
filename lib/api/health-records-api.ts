@@ -14,7 +14,41 @@ const handleApiError = (error: any, defaultMessage: string): Error => {
     return new Error('Unable to connect to server. Please check your internet connection.');
   }
 
-  const message = error.response?.data?.detail || error.message || defaultMessage;
+  // Extract error message, handling both string and object responses
+  let message = defaultMessage;
+  
+  if (error.response?.data) {
+    const data = error.response.data;
+    // Handle detail field (could be string or object)
+    if (data.detail) {
+      if (typeof data.detail === 'string') {
+        message = data.detail;
+      } else if (typeof data.detail === 'object') {
+        // If detail is an object, try to extract meaningful message
+        if (Array.isArray(data.detail)) {
+          message = data.detail.map((item: any) => {
+            if (typeof item === 'string') return item;
+            if (item?.msg) return item.msg;
+            if (item?.message) return item.message;
+            return JSON.stringify(item);
+          }).join(', ');
+        } else if (data.detail.message) {
+          message = data.detail.message;
+        } else if (data.detail.error) {
+          message = data.detail.error;
+        } else {
+          message = JSON.stringify(data.detail);
+        }
+      }
+    } else if (data.message) {
+      message = typeof data.message === 'string' ? data.message : JSON.stringify(data.message);
+    } else if (data.error) {
+      message = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+    }
+  } else if (error.message) {
+    message = typeof error.message === 'string' ? error.message : JSON.stringify(error.message);
+  }
+  
   return new Error(message);
 };
 
@@ -560,6 +594,35 @@ export class HealthRecordsApiService {
       return response.data.images || response.data || [];
     } catch (error: any) {
       throw handleApiError(error, 'Failed to fetch medical images');
+    }
+  }
+
+  /**
+   * Get a single medical image by ID
+   */
+  static async getMedicalImageById(imageId: number): Promise<{
+    id: number;
+    image_type: string;
+    body_part?: string;
+    image_date: string;
+    findings?: string;
+    conclusions?: string;
+    interpretation?: string;
+    original_filename: string;
+    file_size_bytes: number;
+    content_type: string;
+    s3_key: string;
+    doctor_name?: string;
+    doctor_number?: string;
+    notes?: string;
+    created_at: string;
+    updated_at: string;
+  }> {
+    try {
+      const response = await apiClient.get(`/health-records/health-record-doc-exam/${imageId}`);
+      return response.data;
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to fetch medical image');
     }
   }
 

@@ -6,9 +6,11 @@ import type {
   MessageType, 
   MessageFilters,
   MessageAttachment,
-  BotConversation,
-  SALUSO_SUPPORT_CONVERSATION_ID
+  BotConversation
 } from '@/types/messages';
+
+// Bot conversation ID - defined locally to avoid runtime import issues
+const BOT_CONVERSATION_ID = 'saluso-support';
 
 interface UseMessagesReturn {
   // Data
@@ -40,22 +42,24 @@ interface UseMessagesReturn {
 }
 
 // Create bot conversation object
-const createBotConversation = (): BotConversation => ({
-  id: SALUSO_SUPPORT_CONVERSATION_ID,
-  user_id: 0,
-  contact_id: 0,
-  contact_name: 'Saluso Support',
-  contact_role: 'AI Assistant',
-  contact_initials: 'SS',
-  messages: [],
-  unreadCount: 0,
-  lastMessageTime: new Date().toISOString(),
-  lastMessage: undefined,
-  isArchived: false,
-  isPinned: false,
-  tags: [],
-  isBot: true,
-});
+const createBotConversation = (): BotConversation => {
+  return {
+    id: BOT_CONVERSATION_ID as 'saluso-support',
+    user_id: 0,
+    contact_id: 0,
+    contact_name: 'Saluso Support',
+    contact_role: 'AI Assistant',
+    contact_initials: 'SS',
+    messages: [],
+    unreadCount: 0,
+    lastMessageTime: new Date().toISOString(),
+    lastMessage: undefined,
+    isArchived: false,
+    isPinned: false,
+    tags: [],
+    isBot: true,
+  };
+};
 
 export function useMessages(patientId?: number | null): UseMessagesReturn {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -91,7 +95,7 @@ export function useMessages(patientId?: number | null): UseMessagesReturn {
   // Load messages for a conversation
   const loadMessages = useCallback(async (conversationId: string, page = 1, reset = false) => {
     // Don't load messages for bot conversation here - handled by useAIChat
-    if (conversationId === SALUSO_SUPPORT_CONVERSATION_ID) {
+    if (conversationId === BOT_CONVERSATION_ID) {
       return;
     }
 
@@ -133,7 +137,7 @@ export function useMessages(patientId?: number | null): UseMessagesReturn {
       return;
     }
 
-    if (conversationId === SALUSO_SUPPORT_CONVERSATION_ID) {
+    if (conversationId === BOT_CONVERSATION_ID) {
       setSelectedConversation(botConversation);
       setMessages([]);
       return;
@@ -160,7 +164,7 @@ export function useMessages(patientId?: number | null): UseMessagesReturn {
     if (!selectedConversation) return;
 
     // Bot conversation is handled by useAIChat hook
-    if (selectedConversation.id === SALUSO_SUPPORT_CONVERSATION_ID) {
+    if (selectedConversation.id === BOT_CONVERSATION_ID) {
       throw new Error('Use useAIChat hook to send messages to bot');
     }
 
@@ -219,7 +223,7 @@ export function useMessages(patientId?: number | null): UseMessagesReturn {
 
   // Mark messages as read
   const markAsRead = useCallback(async (messageId?: string) => {
-    if (!selectedConversation || selectedConversation.id === SALUSO_SUPPORT_CONVERSATION_ID) return;
+    if (!selectedConversation || selectedConversation.id === BOT_CONVERSATION_ID) return;
 
     try {
       if (messageId) {
@@ -300,7 +304,7 @@ export function useMessages(patientId?: number | null): UseMessagesReturn {
     try {
       await messagesApiService.handleMedicationReminderAction(messageId, action);
       // Refresh messages
-      if (selectedConversation && selectedConversation.id !== SALUSO_SUPPORT_CONVERSATION_ID) {
+      if (selectedConversation && selectedConversation.id !== BOT_CONVERSATION_ID) {
         await loadMessages(selectedConversation.id, 1, true);
       }
     } catch (err: any) {
@@ -314,7 +318,7 @@ export function useMessages(patientId?: number | null): UseMessagesReturn {
     try {
       await messagesApiService.handleAppointmentReminderAction(messageId, action);
       // Refresh messages
-      if (selectedConversation && selectedConversation.id !== SALUSO_SUPPORT_CONVERSATION_ID) {
+      if (selectedConversation && selectedConversation.id !== BOT_CONVERSATION_ID) {
         await loadMessages(selectedConversation.id, 1, true);
       }
     } catch (err: any) {

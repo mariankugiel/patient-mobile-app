@@ -68,19 +68,19 @@ export interface MedicationCreate {
 export interface MedicationUpdate {
   medication_name?: string;
   medication_type?: 'prescription' | 'over_the_counter' | 'supplement' | 'vaccine';
-  dosage?: string;
-  frequency?: string;
-  purpose?: string;
-  instructions?: string;
+  dosage?: string | null;
+  frequency?: string | null;
+  purpose?: string | null;
+  instructions?: string | null;
   status?: 'active' | 'discontinued' | 'completed' | 'on_hold';
   start_date?: string;
   end_date?: string;
-  // Prescription information
-  rx_number?: string;
-  pharmacy?: string;
-  original_quantity?: number;
-  refills_remaining?: number;
-  last_filled_date?: string;
+  // Prescription information - null values are sent to clear fields
+  rx_number?: string | null;
+  pharmacy?: string | null;
+  original_quantity?: number | null;
+  refills_remaining?: number | null;
+  last_filled_date?: string | null;
 }
 
 class MedicationsApiService {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Image, Linking, ActivityIndicator, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Plus, Clock, LineChart, Heart, Scale, Dumbbell, Syringe, TrendingUp, TrendingDown, Minus, FileText, Download, Upload, Stethoscope, Calendar, Edit, Trash2, Menu } from 'lucide-react-native';
 import SideDrawer from '@/components/SideDrawer';
 import ProgressRing from '@/components/ProgressRing';
@@ -284,6 +284,27 @@ export default function RecordsScreen() {
 
     fetchMedicalImages();
   }, [activeTab]);
+
+  // Refresh exams list when screen comes into focus (e.g., after uploading an exam)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (activeTab === 'exames') {
+        const fetchMedicalImages = async () => {
+          setImagesLoading(true);
+          try {
+            const images = await HealthRecordsApiService.getMedicalImages(0, 100);
+            setMedicalImages(images);
+          } catch (error: any) {
+            console.error('Failed to fetch medical images:', error);
+            setMedicalImages([]);
+          } finally {
+            setImagesLoading(false);
+          }
+        };
+        fetchMedicalImages();
+      }
+    }, [activeTab])
+  );
 
   // Format metric value for display (returns just the number, unit is passed separately)
   const formatMetricValue = (metric: MetricWithData): string => {
@@ -1223,7 +1244,7 @@ export default function RecordsScreen() {
                           <LineChartComponent
                             data={chartData}
                             referenceValue={referenceRange}
-                            width={screenWidth - 48}
+                            width={screenWidth - 80}
                             height={220}
                             color={statusColor}
                             showAxis={true}
@@ -1520,7 +1541,7 @@ export default function RecordsScreen() {
                           <LineChartComponent
                             data={chartData}
                             referenceValue={referenceRange}
-                            width={screenWidth - 48}
+                            width={screenWidth - 80}
                             height={220}
                             color={statusColor}
                             isDoubleValue={isBloodPressure}
@@ -1692,7 +1713,7 @@ export default function RecordsScreen() {
                           <LineChartComponent
                             data={chartData}
                             referenceValue={referenceRange}
-                            width={screenWidth - 48}
+                            width={screenWidth - 80}
                             height={220}
                             color={statusColor}
                             showAxis={true}
@@ -1817,7 +1838,7 @@ export default function RecordsScreen() {
                           <LineChartComponent
                             data={chartData}
                             referenceValue={referenceRange}
-                            width={screenWidth - 48}
+                            width={screenWidth - 80}
                             height={220}
                             color={statusColor}
                             chartType={chartType as 'line' | 'bar'}
@@ -1978,8 +1999,35 @@ export default function RecordsScreen() {
                         </Text>
                       )}
                       {exam.findings && (
-                        <Text style={styles.documentDescription} numberOfLines={1}>
-                          {t.findings || 'Findings'}: {exam.findings}
+                        <View style={styles.findingsContainer}>
+                          <Text style={styles.documentDescription}>
+                            {t.findings || 'Findings'}: 
+                          </Text>
+                          <View style={[
+                            styles.findingsBadge,
+                            exam.findings === 'No Findings' || exam.findings === 'No_Findings' ? styles.findingsBadgeNoFindings :
+                            exam.findings === 'Low Risk Findings' || exam.findings === 'Low_Risk_Findings' ? styles.findingsBadgeLowRisk :
+                            exam.findings === 'Relevant Findings' || exam.findings === 'Relevant_Findings' ? styles.findingsBadgeRelevant :
+                            styles.findingsBadgeDefault
+                          ]}>
+                            <Text style={[
+                              styles.findingsBadgeText,
+                              exam.findings === 'No Findings' || exam.findings === 'No_Findings' ? styles.findingsBadgeTextNoFindings :
+                              exam.findings === 'Low Risk Findings' || exam.findings === 'Low_Risk_Findings' ? styles.findingsBadgeTextLowRisk :
+                              exam.findings === 'Relevant Findings' || exam.findings === 'Relevant_Findings' ? styles.findingsBadgeTextRelevant :
+                              styles.findingsBadgeTextDefault
+                            ]}>
+                              {exam.findings === 'No Findings' || exam.findings === 'No_Findings' ? (t.noFindings || 'No Findings') :
+                               exam.findings === 'Low Risk Findings' || exam.findings === 'Low_Risk_Findings' ? (t.lowRiskFindings || 'Low Risk Findings') :
+                               exam.findings === 'Relevant Findings' || exam.findings === 'Relevant_Findings' ? (t.relevantFindings || 'Relevant Findings') :
+                               exam.findings}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                      {exam.conclusions && (
+                        <Text style={styles.documentDescription} numberOfLines={2}>
+                          {t.conclusion || 'Conclusion'}: {exam.conclusions}
                         </Text>
                       )}
                     </View>
@@ -2742,6 +2790,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textLight,
     marginTop: 4,
+  },
+  findingsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  findingsBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  findingsBadgeNoFindings: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#10B981',
+  },
+  findingsBadgeLowRisk: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
+  findingsBadgeRelevant: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#EF4444',
+  },
+  findingsBadgeDefault: {
+    backgroundColor: Colors.background,
+    borderColor: Colors.border,
+  },
+  findingsBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  findingsBadgeTextNoFindings: {
+    color: '#065F46',
+  },
+  findingsBadgeTextLowRisk: {
+    color: '#92400E',
+  },
+  findingsBadgeTextRelevant: {
+    color: '#991B1B',
+  },
+  findingsBadgeTextDefault: {
+    color: Colors.text,
   },
   documentActions: {
     flexDirection: 'row',

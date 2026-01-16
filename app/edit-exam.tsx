@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Platform, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Calendar, Stethoscope, FileCheck, UserCircle } from 'lucide-react-native';
+import { ArrowLeft, Calendar, Stethoscope, FileCheck, UserCircle, User, FileText, X, CheckCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HealthRecordsApiService, MedicalImageData } from '@/lib/api/health-records-api';
@@ -57,26 +57,45 @@ export default function EditExamScreen() {
 
     setIsLoading(true);
     try {
-      const response = await HealthRecordsApiService.getMedicalImages(0, 1000);
-      const exam = response.images.find((img: MedicalImageData) => img.id === examId);
+      // Use the single exam endpoint instead of fetching all exams
+      const exam = await HealthRecordsApiService.getMedicalImageById(examId);
       
-      if (exam) {
-        setImageType(exam.image_type || '');
-        setBodyPart(exam.body_part || '');
-        setFindings(exam.findings || 'No Findings');
-        setInterpretation(exam.interpretation || '');
-        setConclusions(exam.conclusions || '');
-        setDoctorName(exam.doctor_name || '');
-        setDoctorNumber(exam.doctor_number || '');
-        if (exam.image_date) {
+      // Safely set all fields, truncating where necessary to match backend constraints
+      setImageType(exam.image_type || '');
+      
+      // Truncate body_part to 100 characters to match database constraint
+      const bodyPartValue = exam.body_part || '';
+      setBodyPart(bodyPartValue.length > 100 ? bodyPartValue.substring(0, 100) : bodyPartValue);
+      
+      // Set findings (should be an enum value)
+      const findingsValue = exam.findings || 'No Findings';
+      setFindings(findingsValue);
+      
+      // Set text fields (interpretation and conclusions can be long, no truncation needed)
+      setInterpretation(exam.interpretation || '');
+      setConclusions(exam.conclusions || '');
+      
+      // Truncate doctor_name to 200 characters (database limit)
+      const doctorNameValue = exam.doctor_name || '';
+      setDoctorName(doctorNameValue.length > 200 ? doctorNameValue.substring(0, 200) : doctorNameValue);
+      
+      // Truncate doctor_number to 50 characters (database limit)
+      const doctorNumberValue = exam.doctor_number || '';
+      setDoctorNumber(doctorNumberValue.length > 50 ? doctorNumberValue.substring(0, 50) : doctorNumberValue);
+      
+      if (exam.image_date) {
+        try {
           setImageDate(new Date(exam.image_date));
+        } catch (dateError) {
+          // If date parsing fails, use current date
+          setImageDate(new Date());
         }
-      } else {
-        Alert.alert(t.error || 'Error', t.examNotFound || 'Exam not found');
-        router.back();
       }
     } catch (error: any) {
-      Alert.alert(t.error || 'Error', error.message || 'Failed to load exam');
+      // Ensure error message is always a string
+      const errorMessage = error?.message || error?.toString() || 'Failed to load exam';
+      const message = typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage);
+      Alert.alert(t.error || 'Error', message);
       router.back();
     } finally {
       setIsLoading(false);
@@ -103,14 +122,22 @@ export default function EditExamScreen() {
 
     setIsSubmitting(true);
     try {
+      // Truncate all fields to match backend constraints before sending
+      const truncatedBodyPart = bodyPart ? bodyPart.substring(0, 100) : undefined;
+      const truncatedDoctorName = doctorName ? doctorName.substring(0, 200) : undefined;
+      const truncatedDoctorNumber = doctorNumber ? doctorNumber.substring(0, 50) : undefined;
+      
+      // Ensure findings is valid
+      const validFindings = findings || 'No Findings';
+      
       await HealthRecordsApiService.updateMedicalImage(examId, {
         image_type: imageType,
-        body_part: bodyPart || undefined,
-        findings: findings || 'No Findings',
+        body_part: truncatedBodyPart,
+        findings: validFindings,
         interpretation: interpretation || undefined,
         conclusions: conclusions || undefined,
-        doctor_name: doctorName || undefined,
-        doctor_number: doctorNumber || undefined,
+        doctor_name: truncatedDoctorName,
+        doctor_number: truncatedDoctorNumber,
       });
 
       Alert.alert(
@@ -124,7 +151,14 @@ export default function EditExamScreen() {
         ]
       );
     } catch (error: any) {
-      Alert.alert(t.error || 'Error', error.message || 'Failed to update exam');
+      // Ensure error message is always a string
+      let errorMessage = 'Failed to update exam';
+      if (error?.message) {
+        errorMessage = typeof error.message === 'string' ? error.message : String(error.message);
+      } else if (error?.toString) {
+        errorMessage = error.toString();
+      }
+      Alert.alert(t.error || 'Error', errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -141,7 +175,7 @@ export default function EditExamScreen() {
             <ArrowLeft size={24} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t.editExam || 'Edit Exam'}</Text>
-          <View style={styles.spacer} />
+          <View style={{ width: 24 }} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
@@ -161,7 +195,7 @@ export default function EditExamScreen() {
           <ArrowLeft size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t.editExam || 'Edit Exam'}</Text>
-        <View style={styles.spacer} />
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView 
@@ -197,10 +231,28 @@ export default function EditExamScreen() {
               style={styles.input}
               placeholder={t.bodyPartPlaceholder || 'e.g., Chest, Upper abdomen'}
               value={bodyPart}
-              onChangeText={setBodyPart}
+              onChangeText={(text) => {
+                // Limit to 100 characters to match database constraint
+                if (text.length <= 100) {
+                  setBodyPart(text);
+                } else {
+                  // Truncate and show warning
+                  setBodyPart(text.substring(0, 100));
+                  Alert.alert(
+                    t.validationError || 'Validation Error',
+                    t.bodyPartMaxLength || 'Body part is limited to 100 characters'
+                  );
+                }
+              }}
+              maxLength={100}
               editable={!isSubmitting}
             />
           </View>
+          {bodyPart.length > 90 && (
+            <Text style={styles.characterCount}>
+              {bodyPart.length}/100 {t.characters || 'characters'}
+            </Text>
+          )}
         </View>
 
         {/* Image Date - Required */}
@@ -246,7 +298,7 @@ export default function EditExamScreen() {
                 ? t[findingsOptions.find(opt => opt.value === findings)!.labelKey as keyof typeof t] || findings
                 : findings}
             </Text>
-            <Stethoscope size={20} color={Colors.primary} />
+            <FileText size={20} color={Colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -254,8 +306,8 @@ export default function EditExamScreen() {
         <View style={styles.formGroup}>
           <Text style={styles.label}>{t.interpretation || 'Interpretation'}</Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder={t.interpretationPlaceholder || 'Enter interpretation'}
+            style={styles.notesInput}
+            placeholder={t.interpretationPlaceholder || 'Medical interpretation of the image...'}
             value={interpretation}
             onChangeText={setInterpretation}
             multiline
@@ -269,12 +321,12 @@ export default function EditExamScreen() {
         <View style={styles.formGroup}>
           <Text style={styles.label}>{t.conclusions || 'Conclusions'}</Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder={t.conclusionsPlaceholder || 'Enter conclusions'}
+            style={styles.notesInput}
+            placeholder={t.conclusionsPlaceholder || 'Conclusions and findings...'}
             value={conclusions}
             onChangeText={setConclusions}
             multiline
-            numberOfLines={4}
+            numberOfLines={3}
             textAlignVertical="top"
             editable={!isSubmitting}
           />
@@ -299,10 +351,10 @@ export default function EditExamScreen() {
         <View style={styles.formGroup}>
           <Text style={styles.label}>{t.doctorNumber || 'Doctor Number'}</Text>
           <View style={styles.inputContainer}>
-            <UserCircle size={20} color={Colors.primary} />
+            <User size={20} color={Colors.primary} />
             <TextInput
               style={styles.input}
-              placeholder={t.doctorNumberPlaceholder || "Doctor's number"}
+              placeholder={t.doctorNumberPlaceholder || "Doctor's license number"}
               value={doctorNumber}
               onChangeText={setDoctorNumber}
               editable={!isSubmitting}
@@ -342,33 +394,39 @@ export default function EditExamScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t.selectImageType || 'Select Image Type'}</Text>
-            {imageTypes.map((type) => (
-              <TouchableOpacity
-                key={type.value}
-                style={[
-                  styles.modalOption,
-                  imageType === type.value && styles.modalOptionSelected
-                ]}
-                onPress={() => {
-                  setImageType(type.value);
-                  setShowTypePicker(false);
-                }}
-              >
-                <Text style={[
-                  styles.modalOptionText,
-                  imageType === type.value && styles.modalOptionTextSelected
-                ]}>
-                  {t[type.labelKey as keyof typeof t] || type.value}
-                </Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t.selectImageType || 'Select Image Type'}</Text>
+              <TouchableOpacity onPress={() => setShowTypePicker(false)}>
+                <X size={24} color={Colors.text} />
               </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.modalCancelButton}
-              onPress={() => setShowTypePicker(false)}
-            >
-              <Text style={styles.modalCancelText}>{t.cancel || 'Cancel'}</Text>
-            </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {imageTypes.map((type) => (
+                <TouchableOpacity
+                  key={type.value}
+                  style={[
+                    styles.typeOption,
+                    imageType === type.value && styles.typeOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setImageType(type.value);
+                    setShowTypePicker(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.typeOptionText,
+                      imageType === type.value && styles.typeOptionTextSelected,
+                    ]}
+                  >
+                    {t[type.labelKey as keyof typeof t] || type.value}
+                  </Text>
+                  {imageType === type.value && (
+                    <CheckCircle size={20} color={Colors.background} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -382,33 +440,39 @@ export default function EditExamScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t.selectFindings || 'Select Findings'}</Text>
-            {findingsOptions.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.modalOption,
-                  findings === option.value && styles.modalOptionSelected
-                ]}
-                onPress={() => {
-                  setFindings(option.value);
-                  setShowFindingsPicker(false);
-                }}
-              >
-                <Text style={[
-                  styles.modalOptionText,
-                  findings === option.value && styles.modalOptionTextSelected
-                ]}>
-                  {t[option.labelKey as keyof typeof t] || option.value}
-                </Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t.selectFindings || 'Select Findings'}</Text>
+              <TouchableOpacity onPress={() => setShowFindingsPicker(false)}>
+                <X size={24} color={Colors.text} />
               </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.modalCancelButton}
-              onPress={() => setShowFindingsPicker(false)}
-            >
-              <Text style={styles.modalCancelText}>{t.cancel || 'Cancel'}</Text>
-            </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {findingsOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.typeOption,
+                    findings === option.value && styles.typeOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setFindings(option.value);
+                    setShowFindingsPicker(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.typeOptionText,
+                      findings === option.value && styles.typeOptionTextSelected,
+                    ]}
+                  >
+                    {t[option.labelKey as keyof typeof t] || option.value}
+                  </Text>
+                  {findings === option.value && (
+                    <CheckCircle size={20} color={Colors.background} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -426,8 +490,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
+    paddingVertical: 16,
     backgroundColor: Colors.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
@@ -439,9 +502,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.text,
-  },
-  spacer: {
-    width: 32,
   },
   scrollView: {
     flex: 1,
@@ -459,14 +519,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: 20,
+    marginBottom: 16,
+    marginTop: 24,
   },
   formGroup: {
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: Colors.text,
     marginBottom: 8,
   },
@@ -480,9 +541,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary,
     borderRadius: 8,
     padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    minHeight: 48,
   },
   selectButtonText: {
     fontSize: 16,
@@ -497,19 +555,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary,
     borderRadius: 8,
     padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    minHeight: 48,
-    gap: 8,
   },
   input: {
     flex: 1,
+    marginLeft: 8,
     fontSize: 16,
     color: Colors.text,
-  },
-  textArea: {
-    minHeight: 100,
-    paddingTop: 12,
+    paddingVertical: 0,
+    height: 20,
   },
   dateInputContainer: {
     flexDirection: 'row',
@@ -517,14 +570,27 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary,
     borderRadius: 8,
     padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    minHeight: 48,
-    gap: 8,
   },
   dateInput: {
+    flex: 1,
+    marginLeft: 8,
     fontSize: 16,
     color: Colors.text,
+  },
+  notesInput: {
+    backgroundColor: Colors.secondary,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    color: Colors.text,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: Colors.textLight,
+    marginTop: 4,
+    textAlign: 'right',
   },
   saveButton: {
     flexDirection: 'row',
@@ -533,16 +599,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: 8,
     padding: 16,
-    marginTop: 32,
-    gap: 8,
-    minHeight: 50,
+    marginTop: 16,
   },
   saveButtonDisabled: {
-    backgroundColor: Colors.primary,
-    opacity: 0.5,
+    backgroundColor: Colors.textLighter,
+    opacity: 0.6,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: Colors.background,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -555,40 +619,39 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
     maxHeight: '80%',
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: 16,
   },
-  modalOption: {
+  typeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: Colors.secondary,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  modalOptionSelected: {
-    backgroundColor: Colors.primary,
+  typeOptionSelected: {
+    backgroundColor: `${Colors.primary}20`,
   },
-  modalOptionText: {
+  typeOptionText: {
     fontSize: 16,
     color: Colors.text,
   },
-  modalOptionTextSelected: {
-    color: Colors.background,
-    fontWeight: '600',
-  },
-  modalCancelButton: {
-    marginTop: 16,
-    padding: 16,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: 16,
+  typeOptionTextSelected: {
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
 });

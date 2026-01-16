@@ -60,6 +60,7 @@ export default function UploadDocumentScreen() {
   } | null>(null);
   const [rejectedResults, setRejectedResults] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [resultsConfirmed, setResultsConfirmed] = useState(false);
 
   const formatDate = (date: Date): string => {
     const year = date.getFullYear();
@@ -88,12 +89,83 @@ export default function UploadDocumentScreen() {
     }
   };
 
+  const handleUploadRecords = async () => {
+    if (!analysisUploadResult?.s3_url || editableResults.length === 0) {
+      Alert.alert(t.error || 'Error', t.noResultsToUpload || 'No results to upload');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const translationWasApplied = languageInfo?.translation_applied || false;
+      const dateForBackend = formatDate(labTestDate);
+
+      // Map editableResults to bulk upload format
+      const recordsToSend = editableResults.map((editedResult) => ({
+        lab_name: provider || 'Unknown Lab',
+        type_of_analysis: editedResult.type_of_analysis || 'General Lab Analysis',
+        metric_name: editedResult.metric_name,
+        date_of_value: editedResult.date_of_value || dateForBackend,
+        value: editedResult.value,
+        unit: editedResult.unit || '',
+        reference: editedResult.reference_range || '',
+      }));
+
+      const bulkData = {
+        records: recordsToSend,
+        file_name: selectedFile!.name,
+        description: description,
+        s3_url: analysisUploadResult.s3_url,
+        lab_test_date: dateForBackend,
+        provider: provider,
+        document_type: labTestType,
+        detected_language: languageInfo?.detected_language || 'en',
+        translation_applied: languageInfo?.translation_applied || false,
+        user_language: languageInfo?.user_language || 'en',
+      };
+
+      const response = await HealthRecordsApiService.bulkCreateLabRecords(bulkData);
+
+      if (response.success) {
+        const newRecordsCount = response.created_records_count || response.created_records?.length || 0;
+        const updatedRecordsCount = response.updated_records?.length || 0;
+
+        let message = '';
+        if (newRecordsCount > 0 && updatedRecordsCount > 0) {
+          message = `Successfully created ${newRecordsCount} new health records and updated ${updatedRecordsCount} existing records!`;
+        } else if (newRecordsCount > 0) {
+          message = `Successfully created ${newRecordsCount} new health records!`;
+        } else if (updatedRecordsCount > 0) {
+          message = `Updated ${updatedRecordsCount} existing health records!`;
+        } else {
+          message = t.documentSaved || 'Document saved successfully';
+        }
+
+        Alert.alert(t.success || 'Success', message, [
+          { text: t.ok || 'OK', onPress: () => router.back() },
+        ]);
+      } else {
+        throw new Error(response.message || t.failedToSave || 'Failed to save');
+      }
+    } catch (error: any) {
+      Alert.alert(t.error || 'Error', error.message || t.failedToSave || 'Failed to save');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleAnalyze = async () => {
     if (!selectedFile || !labTestDate || !labTestType) {
       Alert.alert(
         t.validationError || 'Validation Error',
         t.fieldRequired || 'Please fill in all required fields'
       );
+      return;
+    }
+
+    // If results are confirmed, upload the records instead of analyzing
+    if (resultsConfirmed && editableResults.length > 0) {
+      await handleUploadRecords();
       return;
     }
 
@@ -167,6 +239,7 @@ export default function UploadDocumentScreen() {
       setAnalysisResults(parsedResults);
       setEditableResults(parsedResults);
       setShowAnalysisResults(true);
+      setResultsConfirmed(false); // Reset confirmed flag when new analysis is done
     } catch (error: any) {
       Alert.alert(t.error || 'Error', error.message || t.failedToAnalyze || 'Failed to analyze document');
     } finally {
@@ -196,6 +269,7 @@ export default function UploadDocumentScreen() {
 
   const handleRejectResults = () => {
     setRejectedResults(true);
+    setResultsConfirmed(false);
     setShowAnalysisResults(false);
     // Still upload document without records
     handleUploadWithoutRecords();
@@ -224,69 +298,16 @@ export default function UploadDocumentScreen() {
     }
   };
 
-  const handleConfirmResults = async () => {
-    if (!analysisUploadResult?.s3_url || editableResults.length === 0) {
-      Alert.alert(t.error || 'Error', t.noResultsToUpload || 'No results to upload');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const translationWasApplied = languageInfo?.translation_applied || false;
-      const dateForBackend = formatDate(labTestDate);
-
-      // Map editableResults to bulk upload format
-      const recordsToSend = editableResults.map((editedResult) => ({
-        lab_name: provider || 'Unknown Lab',
-        type_of_analysis: editedResult.type_of_analysis || 'General Lab Analysis',
-        metric_name: editedResult.metric_name,
-        date_of_value: editedResult.date_of_value || dateForBackend,
-        value: editedResult.value,
-        unit: editedResult.unit || '',
-        reference: editedResult.reference_range || '',
-      }));
-
-      const bulkData = {
-        records: recordsToSend,
-        file_name: selectedFile!.name,
-        description: description,
-        s3_url: analysisUploadResult.s3_url,
-        lab_test_date: dateForBackend,
-        provider: provider,
-        document_type: labTestType,
-        detected_language: languageInfo?.detected_language || 'en',
-        translation_applied: languageInfo?.translation_applied || false,
-        user_language: languageInfo?.user_language || 'en',
-      };
-
-      const response = await HealthRecordsApiService.bulkCreateLabRecords(bulkData);
-
-      if (response.success) {
-        const newRecordsCount = response.created_records_count || response.created_records?.length || 0;
-        const updatedRecordsCount = response.updated_records?.length || 0;
-
-        let message = '';
-        if (newRecordsCount > 0 && updatedRecordsCount > 0) {
-          message = `Successfully created ${newRecordsCount} new health records and updated ${updatedRecordsCount} existing records!`;
-        } else if (newRecordsCount > 0) {
-          message = `Successfully created ${newRecordsCount} new health records!`;
-        } else if (updatedRecordsCount > 0) {
-          message = `Updated ${updatedRecordsCount} existing health records!`;
-        } else {
-          message = t.documentSaved || 'Document saved successfully';
-        }
-
-        Alert.alert(t.success || 'Success', message, [
-          { text: t.ok || 'OK', onPress: () => router.back() },
-        ]);
-      } else {
-        throw new Error(response.message || t.failedToSave || 'Failed to save');
-      }
-    } catch (error: any) {
-      Alert.alert(t.error || 'Error', error.message || t.failedToSave || 'Failed to save');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleConfirmResults = () => {
+    // Just close the dialog and mark results as confirmed
+    // The actual upload will happen when clicking the upload button
+    setShowAnalysisResults(false);
+    setResultsConfirmed(true);
+    Alert.alert(
+      t.success || 'Success',
+      t.resultsConfirmedMessage || 'Results confirmed. Click Upload to save to health records.',
+      [{ text: t.ok || 'OK' }]
+    );
   };
 
   const renderAnalysisResults = () => {
@@ -499,20 +520,24 @@ export default function UploadDocumentScreen() {
           <TouchableOpacity
             style={[
               styles.saveButton,
-              (!labTestDate || !labTestType || !selectedFile || isLoading || isAnalyzing) &&
+              (!labTestDate || !labTestType || !selectedFile || isLoading || isAnalyzing || (resultsConfirmed && editableResults.length === 0)) &&
                 styles.saveButtonDisabled,
             ]}
             onPress={handleAnalyze}
-            disabled={!labTestDate || !labTestType || !selectedFile || isLoading || isAnalyzing}
+            disabled={!labTestDate || !labTestType || !selectedFile || isLoading || isAnalyzing || (resultsConfirmed && editableResults.length === 0)}
           >
-            {isAnalyzing ? (
+            {isAnalyzing || isLoading ? (
               <>
                 <ActivityIndicator color={Colors.background} style={{ marginRight: 8 }} />
-                <Text style={styles.saveButtonText}>{t.analyzing || 'Analyzing...'}</Text>
+                <Text style={styles.saveButtonText}>
+                  {isLoading ? (t.uploading || 'Uploading...') : (t.analyzing || 'Analyzing...')}
+                </Text>
               </>
             ) : (
               <Text style={styles.saveButtonText}>
-                {analysisResults.length > 0
+                {resultsConfirmed && editableResults.length > 0
+                  ? t.uploadToHealthRecords || 'Upload to Health Records'
+                  : analysisResults.length > 0
                   ? t.uploadToHealthRecords || 'Upload to Health Records'
                   : t.uploadAndAnalyze || 'Upload & Analyze'}
               </Text>

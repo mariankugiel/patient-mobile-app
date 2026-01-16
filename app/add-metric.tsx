@@ -338,12 +338,14 @@ export default function AddMetricScreen() {
   const renderSectionSelection = () => (
     <View style={styles.stepContainer}>
       <View style={styles.stepHeader}>
-        <TouchableOpacity onPress={() => { setStep('type'); setSelectedSection(null); }}>
-          <ArrowLeft size={24} color={Colors.text} />
-        </TouchableOpacity>
+        <View style={{ width: 24 }} />
         <Text style={styles.stepTitle}>{t.selectSection || 'Select Section'}</Text>
-        <TouchableOpacity onPress={() => setIsCreatingSection(true)}>
-          <Plus size={24} color={Colors.primary} />
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setIsCreatingSection(true)}
+        >
+          <Plus size={16} color={Colors.background} />
+          <Text style={styles.addButtonText}>{t.add || 'Add'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -399,12 +401,14 @@ export default function AddMetricScreen() {
     return (
       <View style={styles.stepContainer}>
         <View style={styles.stepHeader}>
-          <TouchableOpacity onPress={() => { setStep('section'); setSelectedMetricTemplate(null); }}>
-            <ArrowLeft size={24} color={Colors.text} />
-          </TouchableOpacity>
+          <View style={{ width: 24 }} />
           <Text style={styles.stepTitle}>{t.selectMetric || 'Select Metric'}</Text>
-          <TouchableOpacity onPress={() => setIsCreatingMetric(true)}>
-            <Plus size={24} color={Colors.primary} />
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setIsCreatingMetric(true)}
+          >
+            <Plus size={16} color={Colors.background} />
+            <Text style={styles.addButtonText}>{t.add || 'Add'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -483,9 +487,7 @@ export default function AddMetricScreen() {
     return (
       <View style={styles.stepContainer}>
         <View style={styles.stepHeader}>
-          <TouchableOpacity onPress={() => { setStep('metric'); setValue(''); }}>
-            <ArrowLeft size={24} color={Colors.text} />
-          </TouchableOpacity>
+          <View style={{ width: 24 }} />
           <Text style={styles.stepTitle}>{t.addMetricTitle || 'Add Measurement'}</Text>
           <View style={{ width: 24 }} />
         </View>
@@ -754,6 +756,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  addButtonText: {
+    color: Colors.background,
+    fontSize: 14,
+    fontWeight: '600',
   },
   stepTitle: {
     fontSize: 20,

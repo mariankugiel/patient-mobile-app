@@ -1,19 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Modal, FlatList } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Calendar, Clock, MapPin, Video, Phone, Search, Check, X, Loader2 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDoctors } from '@/hooks/useDoctors';
 import { useAvailability } from '@/hooks/useAvailability';
 import { useProfile } from '@/hooks/useProfile';
+import { useAppointments } from '@/hooks/useAppointments';
 import { appointmentsApiService, Doctor, TimeSlot } from '@/lib/api/appointments-api';
-import DatePicker from '@/components/DatePicker';
+import AppointmentDatePicker from '@/components/AppointmentDatePicker';
+import TimeSlotsList from '@/components/TimeSlotsList';
 
 export default function AddAppointmentScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { t, language } = useLanguage();
   const { profile } = useProfile();
+  
+  // Check if this is a reschedule
+  const isReschedule = !!params.rescheduleId;
+  const rescheduleId = params.rescheduleId as string | undefined;
   
   // Search and filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -22,9 +29,9 @@ export default function AddAppointmentScreen() {
   // Selection states
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedAppointmentType, setSelectedAppointmentType] = useState<{ id: string; name?: string; category?: string } | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>(params.date as string || '');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(params.notes as string || '');
   const [phone, setPhone] = useState('');
   
   // Modal states
@@ -38,24 +45,59 @@ export default function AddAppointmentScreen() {
   // Hooks
   const { doctors, loading: loadingDoctors, error: doctorsError, hasMore, loadDoctors, reset: resetDoctors } = useDoctors();
   const { availableDates, availableTimes, loading: loadingAvailability, loadAvailableDates, loadAvailableTimes, reset: resetAvailability } = useAvailability();
+  const { appointments, rescheduleAppointment } = useAppointments();
   
   // Load doctors on mount and when search/location changes
   useEffect(() => {
     resetDoctors();
     loadDoctors({ search: searchQuery, location: locationFilter, reset: true });
   }, [searchQuery, locationFilter]);
+
+  // Pre-select doctor and appointment type when rescheduling
+  useEffect(() => {
+    if (isReschedule && params.doctorId && params.appointmentTypeId && doctors.length > 0) {
+      // Find the doctor
+      const doctor = doctors.find(d => d.id.toString() === params.doctorId);
+      if (doctor && !selectedDoctor) {
+        setSelectedDoctor(doctor);
+      }
+      
+      // Set appointment type
+      if (params.appointmentTypeId && !selectedAppointmentType) {
+        setSelectedAppointmentType({ id: params.appointmentTypeId as string });
+      }
+    }
+  }, [isReschedule, params.doctorId, params.appointmentTypeId, doctors, selectedDoctor, selectedAppointmentType]);
   
+  // Current month for calendar (YYYY-MM format)
+  const [currentMonth, setCurrentMonth] = useState<string>('');
+
   // Load available dates when doctor and appointment type are selected
   useEffect(() => {
     if (selectedDoctor?.acuityCalendarId && selectedAppointmentType?.id) {
       const appointmentTypeId = parseInt(selectedAppointmentType.id, 10);
-      loadAvailableDates(selectedDoctor.acuityCalendarId, appointmentTypeId);
+      // Load current month's availability
+      const today = new Date();
+      const monthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+      setCurrentMonth(monthStr);
+      loadAvailableDates(selectedDoctor.acuityCalendarId, appointmentTypeId, monthStr);
     } else {
       resetAvailability();
       setSelectedDate('');
       setSelectedTimeSlot(null);
+      setCurrentMonth('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDoctor, selectedAppointmentType]);
+
+  // Handle month change in calendar - fetch availability for new month
+  const handleMonthChange = useCallback(async (month: string) => {
+    if (selectedDoctor?.acuityCalendarId && selectedAppointmentType?.id && month !== currentMonth) {
+      setCurrentMonth(month);
+      const appointmentTypeId = parseInt(selectedAppointmentType.id, 10);
+      await loadAvailableDates(selectedDoctor.acuityCalendarId, appointmentTypeId, month);
+    }
+  }, [selectedDoctor, selectedAppointmentType, currentMonth, loadAvailableDates]);
   
   // Load available times when date is selected
   useEffect(() => {
@@ -155,35 +197,56 @@ export default function AddAppointmentScreen() {
       const datetimeISO = buildDateTimeISO(selectedDate, selectedTimeSlot);
       const appointmentTypeId = parseInt(selectedAppointmentType.id, 10);
       
-      const appointmentData = {
-        calendar_id: selectedDoctor.acuityCalendarId || '',
-        appointment_type_id: appointmentTypeId || undefined,
-        datetime: datetimeISO,
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        phone: isPhoneCategory ? phone.trim() : undefined,
-        note: notes.trim() || undefined,
-        timezone: selectedDoctor.timezone || undefined,
-      };
-      
-      await appointmentsApiService.bookAppointment(appointmentData);
-      
-      Alert.alert(
-        t.success || 'Success',
-        'Appointment booked successfully!',
-        [
-          {
-            text: t.confirm || 'OK',
-            onPress: () => router.back()
-          }
-        ]
-      );
+      if (isReschedule && rescheduleId) {
+        // Reschedule existing appointment
+        await rescheduleAppointment(rescheduleId, {
+          appointment_date: datetimeISO,
+          appointment_type_id: appointmentTypeId || undefined,
+          notes: notes.trim() || undefined,
+        });
+        
+        Alert.alert(
+          t.success || 'Success',
+          'Appointment rescheduled successfully!',
+          [
+            {
+              text: t.confirm || 'OK',
+              onPress: () => router.back()
+            }
+          ]
+        );
+      } else {
+        // Book new appointment
+        const appointmentData = {
+          calendar_id: selectedDoctor.acuityCalendarId || '',
+          appointment_type_id: appointmentTypeId || undefined,
+          datetime: datetimeISO,
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+          phone: isPhoneCategory ? phone.trim() : undefined,
+          note: notes.trim() || undefined,
+          timezone: selectedDoctor.timezone || undefined,
+        };
+        
+        await appointmentsApiService.bookAppointment(appointmentData);
+        
+        Alert.alert(
+          t.success || 'Success',
+          'Appointment booked successfully!',
+          [
+            {
+              text: t.confirm || 'OK',
+              onPress: () => router.back()
+            }
+          ]
+        );
+      }
     } catch (error: any) {
-      console.error('Error booking appointment:', error);
+      console.error('Error booking/rescheduling appointment:', error);
       Alert.alert(
         t.validationError || 'Error',
-        error.message || 'Failed to book appointment. Please try again.'
+        error.message || (isReschedule ? 'Failed to reschedule appointment. Please try again.' : 'Failed to book appointment. Please try again.')
       );
     } finally {
       setIsBooking(false);
@@ -198,53 +261,6 @@ export default function AddAppointmentScreen() {
     } catch {
       return dateString;
     }
-  };
-  
-  const formatTime = (timeSlot: TimeSlot) => {
-    // Use displayTime if available (already formatted by API service)
-    if (timeSlot.displayTime) {
-      return timeSlot.displayTime;
-    }
-    
-    // Use time field if it's already in HH:mm format
-    if (timeSlot.time && !timeSlot.time.includes('T')) {
-      const match = timeSlot.time.match(/(\d{1,2}):(\d{2})/);
-      if (match) {
-        return `${match[1].padStart(2, '0')}:${match[2]}`;
-      }
-      return timeSlot.time;
-    }
-    
-    // Try to extract from ISO datetime
-    const isoString = timeSlot.isoTime || timeSlot.time || timeSlot.rawTime || '';
-    if (isoString.includes('T')) {
-      try {
-        // Normalize timezone format (+0100 -> +01:00)
-        const normalized = isoString.replace(/([+-])(\d{2})(\d{2})$/, '$1$2:$3');
-        const date = new Date(normalized);
-        if (!isNaN(date.getTime())) {
-          const hours = date.getHours().toString().padStart(2, '0');
-          const minutes = date.getMinutes().toString().padStart(2, '0');
-          return `${hours}:${minutes}`;
-        }
-      } catch (e) {
-        // Fall through to regex
-      }
-      
-      // Extract time using regex
-      const match = isoString.match(/T(\d{2}):(\d{2})/);
-      if (match) {
-        return `${match[1]}:${match[2]}`;
-      }
-    }
-    
-    // Fallback: try to extract HH:mm from any string
-    const match = isoString.match(/(\d{1,2}):(\d{2})/);
-    if (match) {
-      return `${match[1].padStart(2, '0')}:${match[2]}`;
-    }
-    
-    return '—';
   };
   
   const getAppointmentTypeIcon = (category?: string) => {
@@ -288,7 +304,9 @@ export default function AddAppointmentScreen() {
         >
           <ArrowLeft size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t.addAppointment || 'Book Appointment'}</Text>
+        <Text style={styles.headerTitle}>
+          {isReschedule ? (t.rescheduleAppointment || 'Reschedule Appointment') : (t.addAppointment || 'Book Appointment')}
+        </Text>
         <View style={{ width: 24 }} />
       </View>
       
@@ -425,60 +443,36 @@ export default function AddAppointmentScreen() {
           </>
         )}
         
-        {/* Date Selection */}
+        {/* Date Selection with Calendar */}
         {selectedDoctor && selectedAppointmentType && (
           <>
             <Text style={styles.sectionTitle}>Select Date</Text>
-            <DatePicker
+            <AppointmentDatePicker
               value={selectedDate}
               onChange={(dateStr) => {
                 setSelectedDate(dateStr);
                 setSelectedTimeSlot(null);
               }}
+              availableDates={availableDates}
+              onMonthChange={handleMonthChange}
               placeholder="Select date"
               label=""
               disabled={isBooking || loadingAvailability}
+              loading={loadingAvailability}
               minimumDate={new Date()}
             />
           </>
         )}
         
-        {/* Time Selection */}
-        {selectedDate && availableTimes.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Select Time</Text>
-            <View style={styles.timeSlotsContainer}>
-              {availableTimes.map((slot, index) => {
-                // Default to available if not specified
-                const isAvailable = slot.available !== undefined ? slot.available : true;
-                // Compare by formatted time for selection
-                const slotTime = formatTime(slot);
-                const selectedTime = selectedTimeSlot ? formatTime(selectedTimeSlot) : '';
-                const isSelected = selectedTimeSlot === slot || slotTime === selectedTime;
-                
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.timeSlotButton,
-                      isSelected && styles.timeSlotButtonSelected,
-                      !isAvailable && styles.timeSlotButtonDisabled
-                    ]}
-                    onPress={() => setSelectedTimeSlot(slot)}
-                    disabled={isBooking || !isAvailable}
-                  >
-                    <Text style={[
-                      styles.timeSlotText,
-                      isSelected && styles.timeSlotTextSelected,
-                      !isAvailable && styles.timeSlotTextDisabled
-                    ]}>
-                      {slotTime}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
+        {/* Time Selection - Appears below calendar when date is selected */}
+        {selectedDate && (
+          <TimeSlotsList
+            timeSlots={availableTimes}
+            selectedTimeSlot={selectedTimeSlot}
+            onTimeSlotSelect={setSelectedTimeSlot}
+            loading={loadingAvailability}
+            disabled={isBooking}
+          />
         )}
         
         {/* Phone Number (for phone appointments) */}
@@ -520,10 +514,14 @@ export default function AddAppointmentScreen() {
           {isBooking ? (
             <>
               <ActivityIndicator size="small" color={Colors.background} />
-              <Text style={styles.bookButtonText}>Booking...</Text>
+              <Text style={styles.bookButtonText}>
+                {isReschedule ? 'Rescheduling...' : 'Booking...'}
+              </Text>
             </>
           ) : (
-            <Text style={styles.bookButtonText}>{t.appointmentsBookAppointment || 'Book Appointment'}</Text>
+            <Text style={styles.bookButtonText}>
+              {isReschedule ? (t.rescheduleAppointment || 'Reschedule') : (t.appointmentsBookAppointment || 'Book Appointment')}
+            </Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -765,6 +763,26 @@ const styles = StyleSheet.create({
   timeSlotTextDisabled: {
     color: Colors.textLight,
     opacity: 0.5,
+  },
+  timeSlotsLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+  },
+  timeSlotsLoadingText: {
+    fontSize: 14,
+    color: Colors.textLight,
+  },
+  noTimeSlotsContainer: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  noTimeSlotsText: {
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
   },
   input: {
     backgroundColor: Colors.secondary,
