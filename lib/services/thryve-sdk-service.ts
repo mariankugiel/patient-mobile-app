@@ -25,12 +25,27 @@ export interface UserInformation {
 /**
  * Initialize and get Thryve SDK instance
  */
-export function getThryveSDK(): ThryveSDK {
-  if (!thryveSDKInstance) {
+function hasValidConfig() {
+  const cfg = getThryveConfig();
+  return Boolean(cfg.partnerId && cfg.apiKey);
+}
+
+export function getThryveSDK(): ThryveSDK | null {
+  if (thryveSDKInstance) return thryveSDKInstance;
+
+  if (!hasValidConfig()) {
+    console.warn('Thryve SDK config missing partnerId/apiKey; skipping init');
+    return null;
+  }
+
+  try {
     const config = getThryveConfig();
     thryveSDKInstance = new ThryveSDK().getOrCreate(config);
+    return thryveSDKInstance;
+  } catch (error) {
+    console.error('Failed to init Thryve SDK:', error);
+    return null;
   }
-  return thryveSDKInstance;
 }
 
 /**
@@ -42,6 +57,7 @@ export async function getConnectDataSourceUrl(
 ): Promise<string | null> {
   try {
     const sdk = getThryveSDK();
+    if (!sdk) return null;
     const response = await sdk.getConnectDataSourceUrl(dataSourceId, redirectUrl);
     
     if (response.successful && response.data) {
@@ -72,6 +88,7 @@ export async function getRevokeDataSourceUrl(
 ): Promise<string | null> {
   try {
     const sdk = getThryveSDK();
+    if (!sdk) return null;
     const response = await sdk.getRevokeDataSourceUrl(
       dataSourceId,
       requireUserAction,
@@ -102,6 +119,7 @@ export async function getRevokeDataSourceUrl(
 export async function isNativeDataSourceAvailable(source: Source): Promise<boolean> {
   try {
     const sdk = getThryveSDK();
+    if (!sdk) return false;
     return await sdk.isAvailable(source);
   } catch (error) {
     console.error('Failed to check availability:', error);
@@ -118,6 +136,10 @@ export function startNativeDataSource(
 ): void {
   try {
     const sdk = getThryveSDK();
+    if (!sdk) {
+      onComplete?.(false, ['Thryve SDK not initialized']);
+      return;
+    }
     sdk.start(source, (result) => {
       if (result.successful) {
         console.log(`✅ ${source} connection started successfully`);
@@ -143,6 +165,10 @@ export function stopNativeDataSource(
 ): void {
   try {
     const sdk = getThryveSDK();
+    if (!sdk) {
+      onComplete?.(false, ['Thryve SDK not initialized']);
+      return;
+    }
     sdk.stop(source, (result) => {
       if (result.successful) {
         console.log(`✅ ${source} connection stopped successfully`);
@@ -165,6 +191,7 @@ export function stopNativeDataSource(
 export async function getUserInformation(): Promise<UserInformation | null> {
   try {
     const sdk = getThryveSDK();
+    if (!sdk) return null;
     const response = await sdk.getUserInformation();
     
     if (response.successful && response.data) {
